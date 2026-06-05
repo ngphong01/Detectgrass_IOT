@@ -69,12 +69,12 @@ class MotorL298N:
         if self.simulate:
             return
         try:
-            if GPIO.getmode() is not None:
-                self.stop()
+            self.stop()
         except Exception:
             pass
+        # Only cleanup OUR pins, not all GPIO
         try:
-            GPIO.cleanup()
+            GPIO.cleanup([self.cfg.in3, self.cfg.in4])
         except Exception:
             pass
 

@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>Giám Sát Cây Trồng · Bảng Điều Khiển</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌱</text></svg>"
+    />
+  </head>
+  <body>
+    <!-- ========== SIDEBAR ========== -->
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark">GS</div>
+        <div>
+          <div class="brand-title">Giám Sát Cây Trồng</div>
+          <div class="brand-sub">v2.1 · Raspberry Pi</div>
+        </div>
+      </div>
+      <nav class="nav">
+        <a href="#dashboard" class="nav-item active"
+          ><span class="nav-ico">▦</span>Tổng Quan</a
+        >
+        <a href="#plants" class="nav-item"
+          ><span class="nav-ico">❀</span>Cây Trồng</a
+        >
+        <a href="#logs" class="nav-item"
+          ><span class="nav-ico">≡</span>Nhật Ký</a
+        >
+        <a href="#settings" class="nav-item"
+          ><span class="nav-ico">⚙</span>Cài Đặt</a
+        >
+      </nav>
+      <div class="sidebar-foot">
+        <div class="health-row">
+          <span class="dot dot-on" id="sb-dot"></span>
+          <span id="sb-status">Đã Kết Nối</span>
+        </div>
+        <div class="uptime-row">
+          Hoạt Động <strong id="sb-uptime">00:00</strong>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ========== CONTENT ========== -->
+    <main class="content" id="dashboard">
+      <!-- Header -->
+      <header class="header">
+        <div>
+          <h1>Bảng Điều Khiển</h1>
+          <p class="muted">Theo dõi &amp; phân tích tăng trưởng cây trồng</p>
+        </div>
+        <div class="header-right">
+          <div class="kpi-mini">
+            <span class="kpi-mini-lbl">FPS</span
+            ><span class="kpi-mini-val" id="fps-badge">0.0</span>
+          </div>
+          <div class="state-pill state-forward" id="state-badge">
+            <span class="state-dot"></span
+            ><span id="state-name">ĐANG CHẠY</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- KPI Row: 3 cards (crops, plants, area) -->
+      <div class="kpi-row">
+        <div class="kpi-card kpi-blue">
+          <div class="kpi-head">
+            <span class="kpi-label">Cây trồng đã phát hiện</span
+            ><span class="kpi-ico">🌿</span>
+          </div>
+          <div class="kpi-value" id="kpi-weed">0</div>
+          <div class="kpi-bar"><div id="bar-crop"></div></div>
+        </div>
+        <div class="kpi-card kpi-blue">
+          <div class="kpi-head">
+            <span class="kpi-label">Cây trồng đã phát hiện</span
+            ><span class="kpi-ico">🌾</span>
+          </div>
+          <div class="kpi-value" id="kpi-crop">0</div>
+          <div class="kpi-bar"><div id="bar-crop"></div></div>
+        </div>
+        <div class="kpi-card kpi-amber">
+          <div class="kpi-head">
+            <span class="kpi-label">Diện tích trung bình</span
+            ><span class="kpi-ico">📐</span>
+          </div>
+          <div class="kpi-value" id="kpi-area">0 px²</div>
+          <div class="kpi-bar"><div id="bar-area"></div></div>
+        </div>
+        <div class="kpi-card kpi-green">
+          <div class="kpi-head">
+            <span class="kpi-label">Cây đang theo dõi</span
+            ><span class="kpi-ico">🪴</span>
+          </div>
+          <div class="kpi-value" id="kpi-plants">0</div>
+          <div class="kpi-bar"><div id="bar-plants"></div></div>
+        </div>
+      </div>
+
+      <!-- Main Grid: Camera + Activity -->
+      <div class="main-grid">
+        <!-- Camera -->
+        <section class="card camera-card">
+          <div class="card-head">
+            <div>
+              <h2>Camera Trực Tiếp</h2>
+              <div class="card-sub">YOLOv8 · 320 px</div>
+            </div>
+            <span class="badge badge-live">● TRỰC TIẾP</span>
+          </div>
+          <div class="camera-frame">
+            <img id="video-feed" src="/video_feed" alt="Live Stream" />
+            <div class="cam-overlay hidden" id="weed-alert">
+              🎯Đã khóa mục tiêu
+            </div>
+            <div class="cam-crosshair"></div>
+          </div>
+        </section>
+
+        <!-- Activity -->
+        <section class="card activity-card">
+          <div class="card-head">
+            <div>
+              <h2>Hoạt Động</h2>
+              <div class="card-sub">20 chu kỳ gần nhất</div>
+            </div>
+          </div>
+          <div class="activity-chart" id="mini-chart"></div>
+          <div class="activity-foot">
+            <div>
+              Trạng Thái<br /><strong id="status-text">ĐANG KHỞI ĐỘNG</strong>
+            </div>
+            <div>Hoạt Động<br /><strong id="uptime">00:00</strong></div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Plant Table -->
+      <section class="card table-card" id="plants">
+        <div class="card-head">
+          <div>
+            <h2>Giám Sát Cây Trồng</h2>
+            <div class="card-sub"><span id="plant-count">0 cây</span></div>
+          </div>
+          <div class="table-filters">
+            <input
+              type="text"
+              id="plant-search"
+              placeholder="Tìm ID hoặc loại cây…"
+            />
+            <select id="plant-filter">
+              <option value="all">Tất cả</option>
+              <option value="crop">Cây trồng</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Loại</th>
+                <th>Diện Tích</th>
+                <th>Giai Đoạn</th>
+                <th>Sức Khỏe</th>
+                <th class="th-actions"></th>
+              </tr>
+            </thead>
+            <tbody id="plant-tbody">
+              <tr class="empty-row">
+                <td colspan="6">
+                  <div class="empty-state">
+                    <div class="empty-ico">📭</div>
+                    <p>Chưa phát hiện cây nào</p>
+                    <small>Dữ liệu sẽ tự động hiển thị</small>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <!-- ========== PLANT DETAIL MODAL ========== -->
+    <div class="modal-overlay" id="plant-modal" hidden>
+      <div class="modal-card">
+        <button class="modal-close" onclick="closeModal()">×</button>
+        <div class="modal-grid">
+          <div class="modal-img-wrap">
+            <img id="modal-img" src="" alt="Plant" style="display: none" />
+          </div>
+          <div class="modal-info">
+            <div class="modal-title-row">
+              <h2 id="modal-title">Cây #—</h2>
+              <span class="tag" id="modal-type-badge">—</span>
+            </div>
+
+            <div class="info-grid">
+              <div class="info-item">
+                <span>Chiều Cao</span><strong id="modal-height">—</strong>
+              </div>
+              <div class="info-item">
+                <span>Chiều Rộng</span><strong id="modal-width">—</strong>
+              </div>
+              <div class="info-item">
+                <span>Diện Tích</span><strong id="modal-area">—</strong>
+              </div>
+              <div class="info-item">
+                <span>Giai Đoạn</span><strong id="modal-stage">—</strong>
+              </div>
+              <div class="info-item info-item-wide">
+                <span>Sức Khỏe</span><strong id="modal-health">—</strong>
+              </div>
+            </div>
+
+            <div class="section-title">Lịch sử tăng trưởng</div>
+            <div class="growth-chart" id="growth-chart">
+              <div class="chart-empty">Đang thu thập dữ liệu…</div>
+            </div>
+
+            <div class="plant-note" id="modal-desc"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const cropHistory = new Array(20).fill(0);
+      let currentPlants = [],
+        filterType = "all",
+        searchQ = "";
+
+      function setBar(id, v, max) {
+        const p = Math.min((v / Math.max(max, 1)) * 100, 100);
+        document.getElementById(id).style.width = p + "%";
+      }
+
+      function renderMiniChart(h) {
+        const maxH = Math.max(...h, 1);
+        document.getElementById("mini-chart").innerHTML = h
+          .map((v) => {
+            const pct = Math.max(6, (v / maxH) * 100);
+            return `<div class="ac-bar ${v > 0 ? "ac-on" : ""}" style="height:${pct}%"></div>`;
+          })
+          .join("");
+      }
+
+      function renderTable() {
+        const tb = document.getElementById("plant-tbody");
+        let list = currentPlants;
+        if (filterType !== "all")
+          list = list.filter(
+            (x) => (x.type || "").toLowerCase() === filterType,
+          );
+        if (searchQ) {
+          const q = searchQ.toLowerCase();
+          list = list.filter(
+            (x) =>
+              String(x.id).includes(q) ||
+              (x.type || "").toLowerCase().includes(q),
+          );
+        }
+        if (!list.length) {
+          tb.innerHTML = `<tr class="empty-row"><td colspan="6"><div class="empty-state"><div class="empty-ico">📭</div><p>Không tìm thấy cây nào</p><small>Thử bộ lọc khác</small></div></td></tr>`;
+          return;
+        }
+        tb.innerHTML = list
+          .map(
+            (x) => `
+    <tr class="plant-row" onclick="openModal(${x.id})">
+      <td><span class="pid">${x.has_image ? "📷 " : ""}#${x.id}</span></td>
+      <td><span class="ptype ptype-${(x.type || "").toLowerCase()}">${x.type}</span></td>
+      <td>${x.area_px.toLocaleString()} px²</td>
+      <td><span class="tag tag-${x.stage.toLowerCase()}">${x.stage}</span></td>
+      <td><span class="tag tag-${x.health.toLowerCase()}">${x.health}</span></td>
+      <td class="td-actions"><button class="btn-icon">→</button></td>
+    </tr>`,
+          )
+          .join("");
+      }
+
+      function openModal(id) {
+        const p = currentPlants.find((x) => x.id === id);
+        if (!p) return;
+        document.getElementById("modal-title").textContent = `Cây #${p.id}`;
+        document.getElementById("modal-type-badge").textContent = p.type;
+        document.getElementById("modal-height").textContent =
+          p.height_px + " px";
+        document.getElementById("modal-width").textContent = p.width_px + " px";
+        document.getElementById("modal-area").textContent =
+          p.area_px.toLocaleString() + " px²";
+        document.getElementById("modal-stage").textContent = p.stage;
+        document.getElementById("modal-health").textContent = p.health;
+        const img = document.getElementById("modal-img");
+        if (p.has_image) {
+          img.src = `/api/plants/${p.id}/image?t=${Date.now()}`;
+          img.style.display = "block";
+        } else {
+          img.removeAttribute("src");
+          img.style.display = "none";
+        }
+        document.getElementById("plant-modal").hidden = false;
+
+        fetch(`/api/plants/${p.id}`)
+          .then((r) => r.json())
+          .then((d) => {
+            const el = document.getElementById("modal-desc");
+            if (d.description)
+              el.innerHTML =
+                "<p>" +
+                d.description.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>") +
+                "</p>";
+            else el.innerHTML = "";
+          })
+          .catch(() => {});
+
+        fetch(`/api/plants/${p.id}/history`)
+          .then((r) => r.json())
+          .then((h) => {
+            const c = document.getElementById("growth-chart");
+            if (!h || h.length < 2) {
+              c.innerHTML =
+                '<div class="chart-empty">Cần ít nhất 2 lần đo</div>';
+              return;
+            }
+            const mx = Math.max(...h.map((x) => x.area_px));
+            c.innerHTML = `<div class="grow-chart">${h
+              .map(
+                (x) => `
+      <div class="grow-bar-wrap">
+        <div class="grow-bar stage-${x.stage.toLowerCase()}" style="height:${((x.area_px / mx) * 100).toFixed(1)}%"></div>
+        <span>${x.time.slice(-8, -3)}</span>
+      </div>`,
+              )
+              .join("")}</div>
+      <div class="chart-sum">${h.length} lần đo · Cao nhất ${mx.toLocaleString()} px²</div>`;
+          })
+          .catch(() => {});
+      }
+
+      function closeModal() {
+        document.getElementById("plant-modal").hidden = true;
+      }
+      document.getElementById("plant-modal").addEventListener("click", (e) => {
+        if (e.target === e.currentTarget) closeModal();
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeModal();
+      });
+      document
+        .getElementById("plant-filter")
+        .addEventListener("change", (e) => {
+          filterType = e.target.value;
+          renderTable();
+        });
+      document.getElementById("plant-search").addEventListener("input", (e) => {
+        searchQ = e.target.value.trim();
+        renderTable();
+      });
+
+      async function poll() {
+        try {
+          const [s, p] = await Promise.all([
+            fetch("/api/stats"),
+            fetch("/api/plants"),
+          ]);
+          const st = await s.json(),
+            pl = await p.json();
+          currentPlants = pl;
+
+          const mx = Math.max(st.crop_detected, pl.length, 10);
+          document.getElementById("kpi-weed").textContent = st.crop_detected;
+          document.getElementById("kpi-crop").textContent = st.crop_detected;
+          // Tính diện tích trung bình
+          const avgArea =
+            pl.length > 0
+              ? Math.round(pl.reduce((s, x) => s + x.area_px, 0) / pl.length)
+              : 0;
+          document.getElementById("kpi-area").textContent =
+            avgArea.toLocaleString() + " px²";
+          document.getElementById("kpi-plants").textContent = pl.length;
+          setBar("bar-crop", st.crop_detected, mx);
+          setBar("bar-area", avgArea, Math.max(mx, avgArea));
+          setBar("bar-plants", pl.length, mx);
+
+          document.getElementById("fps-badge").textContent = st.fps.toFixed(1);
+          document.getElementById("state-name").textContent = st.state;
+          document.getElementById("state-badge").className =
+            "state-pill state-" + st.state.toLowerCase();
+
+          document.getElementById("status-text").textContent = st.system_status;
+          document.getElementById("sb-status").textContent =
+            st.system_status === "RUNNING" ? "Đã Kết Nối" : st.system_status;
+          document.getElementById("sb-dot").className =
+            "dot dot-" +
+            (st.system_status.toLowerCase() === "running" ? "on" : "off");
+
+          const m = Math.floor(st.uptime_sec / 60),
+            s2 = Math.floor(st.uptime_sec % 60);
+          const up = `${String(m).padStart(2, "0")}:${String(s2).padStart(2, "0")}`;
+          document.getElementById("uptime").textContent = up;
+          document.getElementById("sb-uptime").textContent = up;
+
+          cropHistory.push(pl.length > 0 ? 1 : 0);
+          if (cropHistory.length > 20) cropHistory.shift();
+          renderMiniChart(cropHistory);
+
+          document.getElementById("plant-count").textContent =
+            pl.length + " cây";
+          renderTable();
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      poll();
+      setInterval(poll, 1000);
+    </script>
+  </body>
+</html>

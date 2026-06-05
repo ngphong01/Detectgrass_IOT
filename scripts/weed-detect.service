@@ -1,0 +1,19 @@
+[Unit]
+Description=Weed Detection System
+Documentation=https://github.com/user/detect-iot
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/detect-iot
+ExecStart=/usr/bin/python3 /home/pi/detect-iot/main.py --picam2 --web --fps 8 --log-file /home/pi/detect-iot/logs/run.log
+Restart=on-failure
+RestartSec=10
+KillSignal=SIGTERM
+TimeoutStopSec=15
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

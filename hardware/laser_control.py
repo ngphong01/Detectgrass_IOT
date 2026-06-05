@@ -52,10 +52,13 @@ class LaserController:
             self._gpio_off()
 
     def pulse(self, duration_sec: float = 0.3) -> None:
-        """Bắn một phát laser rồi tắt (blocking)."""
-        self.on()
-        time.sleep(duration_sec)
-        self.off()
+        """Fire laser pulse (blocking). Safety capped, always off in finally."""
+        duration_sec = max(0.01, min(duration_sec, 1.0))
+        try:
+            self.on()
+            time.sleep(duration_sec)
+        finally:
+            self.off()
 
     def pulse_async(self, duration_sec: float = 0.3) -> bool:
         """
@@ -78,16 +81,18 @@ class LaserController:
             return True
 
     def cleanup(self) -> None:
-        t = self._pulse_thread
-        if t is not None and t.is_alive():
-            t.join(timeout=3.0)
-        if self.simulate:
-            return
+        # CRITICAL: off FIRST before waiting for pulse thread
         try:
-            if GPIO.getmode() is not None:
-                self.off()
+            self.off()
         except Exception:
             pass
+
+        t = self._pulse_thread
+        if t is not None and t.is_alive():
+            t.join(timeout=2.0)
+
+        if self.simulate:
+            return
         try:
             GPIO.cleanup(self.pin)
         except Exception:
