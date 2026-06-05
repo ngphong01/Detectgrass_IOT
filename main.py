@@ -369,9 +369,18 @@ def run_system(
                 web_frame = frame.copy()
                 if weed_det is not None:
                     x1, y1, x2, y2, _ = weed_det
+                    box_color = (0, 0, 255) if sm_state == "FIRING" else (0, 255, 0)
                     cv2.rectangle(web_frame, (int(x1), int(y1)),
-                                  (int(x2), int(y2)), (0, 255, 0), 2)
-                cv2.putText(web_frame, f"{sm_state}", (10, 25),
+                                  (int(x2), int(y2)), box_color, 2)
+                    if sm_state == "FIRING":
+                        cx = int((x1 + x2) / 2)
+                        cy = int((y1 + y2) / 2)
+                        cv2.drawMarker(web_frame, (cx, cy), (0, 0, 255),
+                                       cv2.MARKER_CROSS, 30, 3)
+                label = f"{sm_state}"
+                if dry_run:
+                    label += " [DRY-RUN]"
+                cv2.putText(web_frame, label, (10, 25),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
                 state.update_frame(web_frame)
 
@@ -445,22 +454,19 @@ def run_system(
 
             elif sm_state == "FIRING":
                 motor.stop()
-                if dry_run:
-                    # Dry-run: vẽ aim point + log, không bắn thật
-                    log.info(
-                        f"🔍 DRY-RUN: lẽ ra bắn tại "
-                        f"pan={pan_angle:.1f}° tilt={tilt_angle:.1f}° "
-                        f"(phát #{shots_for_current_weed + 1})"
-                    )
-                else:
+                if not dry_run:
                     laser.on()
                     time.sleep(laser_pulse_ms / 1000.0)
                     laser.off()
                 laser_fired_count += 1
                 shots_for_current_weed += 1
-                if not dry_run:
-                    log.info(f"🎯 BẮN THÀNH CÔNG cỏ dại — pulse {laser_pulse_ms}ms "
-                             f"(phát #{shots_for_current_weed}, tổng {laser_fired_count})")
+
+                prefix = "🔍 DRY-RUN (giả lập)" if dry_run else "🎯 BẮN THÀNH CÔNG"
+                log.info(
+                    f"{prefix} — pan={pan_angle:.1f}° tilt={tilt_angle:.1f}° "
+                    f"pulse {laser_pulse_ms}ms "
+                    f"(phát #{shots_for_current_weed}, tổng {laser_fired_count})"
+                )
                 cooldown_until = now + cooldown_sec
                 last_detection_time = now
                 stable_hits = 0
