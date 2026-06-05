@@ -189,11 +189,14 @@ def run_system(
     settle_sec: float = 0.3,
     resume_delay_sec: float = 1.5,
     log_file: str | None = "logs/weed_system.log",
+    dry_run: bool = False,
 ) -> None:
     log = setup_logging(log_file)
     log.info("=" * 60)
     log.info("Weed Detection System starting...")
     log.info(f"Model: {model_path} | fps: {target_fps} | pulse: {laser_pulse_ms}ms")
+    if dry_run:
+        log.info("🔍 DRY-RUN MODE: laser sẽ KHÔNG bắn thật, chỉ vẽ aim point")
 
     model = load_model(model_path)
 
@@ -442,13 +445,22 @@ def run_system(
 
             elif sm_state == "FIRING":
                 motor.stop()
-                laser.on()
-                time.sleep(laser_pulse_ms / 1000.0)
-                laser.off()
+                if dry_run:
+                    # Dry-run: vẽ aim point + log, không bắn thật
+                    log.info(
+                        f"🔍 DRY-RUN: lẽ ra bắn tại "
+                        f"pan={pan_angle:.1f}° tilt={tilt_angle:.1f}° "
+                        f"(phát #{shots_for_current_weed + 1})"
+                    )
+                else:
+                    laser.on()
+                    time.sleep(laser_pulse_ms / 1000.0)
+                    laser.off()
                 laser_fired_count += 1
                 shots_for_current_weed += 1
-                log.info(f"Laser pulse {laser_pulse_ms}ms "
-                         f"(shot #{shots_for_current_weed})")
+                if not dry_run:
+                    log.info(f"🎯 BẮN THÀNH CÔNG cỏ dại — pulse {laser_pulse_ms}ms "
+                             f"(phát #{shots_for_current_weed}, tổng {laser_fired_count})")
                 cooldown_until = now + cooldown_sec
                 last_detection_time = now
                 stable_hits = 0
@@ -568,6 +580,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--settle-sec", type=float, default=0.3)
     p.add_argument("--resume-delay-sec", type=float, default=1.5)
     p.add_argument("--log-file", default="logs/weed_system.log")
+    p.add_argument("--dry-run", action="store_true",
+                   help="Kiểm tra aim: vẽ aim point, KHÔNG bắn laser thật")
     return p.parse_args()
 
 
@@ -598,4 +612,5 @@ if __name__ == "__main__":
         settle_sec=args.settle_sec,
         resume_delay_sec=args.resume_delay_sec,
         log_file=args.log_file or None,
+        dry_run=args.dry_run,
     )
