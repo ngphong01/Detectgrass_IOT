@@ -191,6 +191,12 @@ def api_settings():
         if "offset_pan" in data: settings["offset_pan"] = float(data["offset_pan"])
         if "offset_tilt" in data: settings["offset_tilt"] = float(data["offset_tilt"])
         if "gemini_api_key" in data: settings["gemini_api_key"] = str(data["gemini_api_key"]).strip()
+        if "invert_pan" in data: settings["invert_pan"] = bool(data["invert_pan"])
+        if "invert_tilt" in data: settings["invert_tilt"] = bool(data["invert_tilt"])
+        if "invert_motor" in data: settings["invert_motor"] = bool(data["invert_motor"])
+        if "use_pca9685" in data: settings["use_pca9685"] = bool(data["use_pca9685"])
+        if "servo_pan_pin" in data: settings["servo_pan_pin"] = int(data["servo_pan_pin"])
+        if "servo_tilt_pin" in data: settings["servo_tilt_pin"] = int(data["servo_tilt_pin"])
         
         state.update_settings(**settings)
         return jsonify({"status": "success", "settings": state.get_settings()})

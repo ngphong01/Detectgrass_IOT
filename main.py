@@ -31,7 +31,7 @@ except ImportError:
     GPIO = None  # type: ignore
 
 from hardware.laser_control import LaserController
-from hardware.motor_l298n import MotorL298N
+from hardware.motor_l298n import MotorL298N, MotorConfig
 from hardware.servo_pca9685 import ServoControllerPCA9685, ServoKitConfig
 from hardware.wiring import WIRING
 from utils.coordinate_convert import CameraConfig, SERVO_ANGLE_MIN, SERVO_ANGLE_MAX
@@ -252,8 +252,10 @@ def run_system(
         cam_tilt=cam_tilt,
         offset_pan=offset_pan,
         offset_tilt=offset_tilt,
+        invert_pan=dyn_settings.get("invert_pan", False),
+        invert_tilt=dyn_settings.get("invert_tilt", False),
     )
-    log.info(f"[MAIN] Cấu hình Camera: Static={static_cam}, CamHeight={cam_height}cm, ServoHeight={servo_height}cm, Tilt={cam_tilt}°")
+    log.info(f"[MAIN] Cấu hình Camera: Static={static_cam}, CamHeight={cam_height}cm, ServoHeight={servo_height}cm, Tilt={cam_tilt}°, InvertPan={camera_config.invert_pan}, InvertTilt={camera_config.invert_tilt}")
 
     if dry_run:
         log.info("🔍 DRY-RUN MODE: laser sẽ KHÔNG bắn thật, chỉ vẽ aim point")
@@ -300,9 +302,24 @@ def run_system(
         GPIO.setwarnings(False)
         GPIO.setmode(GPIO.BOARD)
 
-    servo = ServoControllerPCA9685(ServoKitConfig())
+    # Khởi tạo Servo linh hoạt dựa trên cấu hình (PCA9685 vs Software PWM)
+    use_pca9685 = dyn_settings.get("use_pca9685", True)
+    if use_pca9685:
+        servo = ServoControllerPCA9685(ServoKitConfig())
+        log.info("[MAIN] Khởi tạo Servo: Sử dụng PCA9685 (I2C)")
+    else:
+        from hardware.servo_control import ServoController, ServoConfig
+        servo = ServoController(ServoConfig(
+            pan_pin=dyn_settings.get("servo_pan_pin", 17),
+            tilt_pin=dyn_settings.get("servo_tilt_pin", 27),
+            use_board_mode=True
+        ))
+        log.info(f"[MAIN] Khởi tạo Servo: Sử dụng GPIO trực tiếp (Pan BCM {dyn_settings.get('servo_pan_pin', 17)}, Tilt BCM {dyn_settings.get('servo_tilt_pin', 27)})")
+
     laser = LaserController()
-    motor_raw = MotorL298N()
+
+    # Khởi tạo MotorL298N hỗ trợ đảo chiều
+    motor_raw = MotorL298N(MotorConfig(invert=dyn_settings.get("invert_motor", False)))
     motor = MotorCommander(motor_raw, log)   # ← wrapper chống spam
 
     # Signal handlers — laser OFF khi SIGTERM/SIGINT
@@ -380,6 +397,12 @@ def run_system(
             camera_config.cam_tilt = dyn_settings.get("cam_tilt", camera_config.cam_tilt)
             camera_config.offset_pan = dyn_settings.get("offset_pan", camera_config.offset_pan)
             camera_config.offset_tilt = dyn_settings.get("offset_tilt", camera_config.offset_tilt)
+            camera_config.invert_pan = dyn_settings.get("invert_pan", camera_config.invert_pan)
+            camera_config.invert_tilt = dyn_settings.get("invert_tilt", camera_config.invert_tilt)
+            
+            # Cập nhật đảo chiều motor trong luồng chạy chính
+            if hasattr(motor_raw, 'cfg'):
+                motor_raw.cfg.invert = dyn_settings.get("invert_motor", motor_raw.cfg.invert)
 
             if is_mock:
                 frame, detections = cap.read_mock(sm_state, pan_angle, tilt_angle)

@@ -120,6 +120,12 @@ class SharedState:
             "offset_pan": 0.0,
             "offset_tilt": 0.0,
             "gemini_api_key": "",
+            "invert_pan": False,
+            "invert_tilt": False,
+            "invert_motor": False,
+            "use_pca9685": True,
+            "servo_pan_pin": 17,
+            "servo_tilt_pin": 27,
         }
         self._load_settings()
 

@@ -276,6 +276,47 @@
               </div>
             </div>
 
+            <!-- Cài đặt đảo chiều và kết nối phần cứng -->
+            <div style="border-top: 1px solid var(--glass-border); padding-top: 15px; display: flex; flex-direction: column; gap: 15px;">
+              <div>
+                <label style="font-weight: 600; font-size: 0.82rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 8px;">Đảo chiều chuyển động</label>
+                <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-primary); font-size: 0.9rem;">
+                    <input type="checkbox" id="setting-invert-pan" name="invert_pan" style="accent-color: var(--accent-green); width: 16px; height: 16px;"> Đảo chiều Pan (Ngang)
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-primary); font-size: 0.9rem;">
+                    <input type="checkbox" id="setting-invert-tilt" name="invert_tilt" style="accent-color: var(--accent-green); width: 16px; height: 16px;"> Đảo chiều Tilt (Dọc)
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-primary); font-size: 0.9rem;">
+                    <input type="checkbox" id="setting-invert-motor" name="invert_motor" style="accent-color: var(--accent-green); width: 16px; height: 16px;"> Đảo chiều Động cơ (Tiến/Lùi)
+                  </label>
+                </div>
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label style="font-weight: 600; font-size: 0.82rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Driver điều khiển Servo</label>
+                <div style="display: flex; gap: 25px; align-items: center; margin-top: 2px;">
+                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-primary); font-size: 0.9rem;">
+                    <input type="radio" name="use_pca9685" value="true" id="setting-driver-pca" style="accent-color: var(--accent-green);" onchange="toggleServoPinInputs()"> Mạch PCA9685 (I2C)
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-primary); font-size: 0.9rem;">
+                    <input type="radio" name="use_pca9685" value="false" id="setting-driver-gpio" style="accent-color: var(--accent-green);" onchange="toggleServoPinInputs()"> GPIO trực tiếp (Software PWM)
+                  </label>
+                </div>
+              </div>
+
+              <div id="servo-pins-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; display: none;">
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  <label style="font-weight: 600; font-size: 0.82rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Chân GPIO Pan (BCM)</label>
+                  <input type="number" id="setting-servo-pan-pin" name="servo_pan_pin" min="1" max="40" class="btn-analyze" style="background: var(--bg-surface); border: 1px solid var(--glass-border); border-radius: 8px; padding: 10px; color: #fff; margin-top: 0; text-align: left; width: 100%;">
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  <label style="font-weight: 600; font-size: 0.82rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Chân GPIO Tilt (BCM)</label>
+                  <input type="number" id="setting-servo-tilt-pin" name="servo_tilt_pin" min="1" max="40" class="btn-analyze" style="background: var(--bg-surface); border: 1px solid var(--glass-border); border-radius: 8px; padding: 10px; color: #fff; margin-top: 0; text-align: left; width: 100%;">
+                </div>
+              </div>
+            </div>
+
             <button type="submit" class="btn-analyze" style="margin-top: 10px; width: 100%; justify-content: center; font-weight: 700; background: var(--gradient-primary); color: #fff; border: none; height: 42px;">💾 Lưu Cấu Hình</button>
           </form>
         </section>
@@ -584,6 +625,16 @@
         }
       }
 
+      function toggleServoPinInputs() {
+        const isGpio = document.getElementById("setting-driver-gpio").checked;
+        const container = document.getElementById("servo-pins-container");
+        if (isGpio) {
+          container.style.display = "grid";
+        } else {
+          container.style.display = "none";
+        }
+      }
+
       // SETTINGS TAB
       async function loadSettings() {
         try {
@@ -608,6 +659,22 @@
           
           document.getElementById("setting-offset-pan").value = s.offset_pan;
           document.getElementById("setting-offset-tilt").value = s.offset_tilt;
+
+          // Load new settings
+          document.getElementById("setting-invert-pan").checked = !!s.invert_pan;
+          document.getElementById("setting-invert-tilt").checked = !!s.invert_tilt;
+          document.getElementById("setting-invert-motor").checked = !!s.invert_motor;
+          
+          if (s.use_pca9685 === false) {
+            document.getElementById("setting-driver-gpio").checked = true;
+          } else {
+            document.getElementById("setting-driver-pca").checked = true;
+          }
+          
+          document.getElementById("setting-servo-pan-pin").value = s.servo_pan_pin || 17;
+          document.getElementById("setting-servo-tilt-pin").value = s.servo_tilt_pin || 27;
+          
+          toggleServoPinInputs();
         } catch (e) {
           console.error("Lỗi tải cấu hình:", e);
         }
@@ -626,13 +693,22 @@
         const offset_pan = parseFloat(document.getElementById("setting-offset-pan").value);
         const offset_tilt = parseFloat(document.getElementById("setting-offset-tilt").value);
         
+        // Get new settings
+        const invert_pan = document.getElementById("setting-invert-pan").checked;
+        const invert_tilt = document.getElementById("setting-invert-tilt").checked;
+        const invert_motor = document.getElementById("setting-invert-motor").checked;
+        const use_pca9685 = document.getElementById("setting-driver-pca").checked;
+        const servo_pan_pin = parseInt(document.getElementById("setting-servo-pan-pin").value) || 17;
+        const servo_tilt_pin = parseInt(document.getElementById("setting-servo-tilt-pin").value) || 27;
+        
         try {
           const res = await fetch("/api/settings", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               gemini_api_key, conf, laser_pulse_ms, max_shots, static_cam,
-              cam_height, servo_height, cam_tilt, offset_pan, offset_tilt
+              cam_height, servo_height, cam_tilt, offset_pan, offset_tilt,
+              invert_pan, invert_tilt, invert_motor, use_pca9685, servo_pan_pin, servo_tilt_pin
             })
           });
           const data = await res.json();

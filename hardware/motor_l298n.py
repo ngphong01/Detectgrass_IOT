@@ -28,6 +28,7 @@ class MotorConfig:
     in4: int = WIRING.motor_in4_pin
     active_high: bool = True
     use_board_numbering: bool = WIRING.use_board_numbering
+    invert: bool = False
 
 
 class MotorL298N:
@@ -57,10 +58,16 @@ class MotorL298N:
         GPIO.output(self.cfg.in4, GPIO.HIGH if in4 else GPIO.LOW)
 
     def forward(self) -> None:
-        self._write(True, False)
+        if self.cfg.invert:
+            self._write(False, True)
+        else:
+            self._write(True, False)
 
     def backward(self) -> None:
-        self._write(False, True)
+        if self.cfg.invert:
+            self._write(True, False)
+        else:
+            self._write(False, True)
 
     def stop(self) -> None:
         self._write(False, False)
