@@ -46,144 +46,240 @@
     </aside>
 
     <!-- ========== CONTENT ========== -->
-    <main class="content" id="dashboard">
-      <!-- Header -->
-      <header class="header">
-        <div>
-          <h1>Bảng Điều Khiển</h1>
-          <p class="muted">Theo dõi &amp; phân tích tăng trưởng cây trồng</p>
-        </div>
-        <div class="header-right">
-          <div class="kpi-mini">
-            <span class="kpi-mini-lbl">FPS</span
-            ><span class="kpi-mini-val" id="fps-badge">0.0</span>
-          </div>
-          <div class="state-pill state-forward" id="state-badge">
-            <span class="state-dot"></span
-            ><span id="state-name">ĐANG CHẠY</span>
-          </div>
-        </div>
-      </header>
-
-      <!-- KPI Row: 3 cards (crops, plants, area) -->
-      <div class="kpi-row">
-        <div class="kpi-card kpi-blue">
-          <div class="kpi-head">
-            <span class="kpi-label">Cây trồng đã phát hiện</span
-            ><span class="kpi-ico">🌿</span>
-          </div>
-          <div class="kpi-value" id="kpi-weed">0</div>
-          <div class="kpi-bar"><div id="bar-crop"></div></div>
-        </div>
-        <div class="kpi-card kpi-blue">
-          <div class="kpi-head">
-            <span class="kpi-label">Cây trồng đã phát hiện</span
-            ><span class="kpi-ico">🌾</span>
-          </div>
-          <div class="kpi-value" id="kpi-crop">0</div>
-          <div class="kpi-bar"><div id="bar-crop"></div></div>
-        </div>
-        <div class="kpi-card kpi-amber">
-          <div class="kpi-head">
-            <span class="kpi-label">Diện tích trung bình</span
-            ><span class="kpi-ico">📐</span>
-          </div>
-          <div class="kpi-value" id="kpi-area">0 px²</div>
-          <div class="kpi-bar"><div id="bar-area"></div></div>
-        </div>
-        <div class="kpi-card kpi-green">
-          <div class="kpi-head">
-            <span class="kpi-label">Cây đang theo dõi</span
-            ><span class="kpi-ico">🪴</span>
-          </div>
-          <div class="kpi-value" id="kpi-plants">0</div>
-          <div class="kpi-bar"><div id="bar-plants"></div></div>
-        </div>
-      </div>
-
-      <!-- Main Grid: Camera + Activity -->
-      <div class="main-grid">
-        <!-- Camera -->
-        <section class="card camera-card">
-          <div class="card-head">
-            <div>
-              <h2>Camera Trực Tiếp</h2>
-              <div class="card-sub">YOLOv8 · 320 px</div>
-            </div>
-            <span class="badge badge-live">● TRỰC TIẾP</span>
-          </div>
-          <div class="camera-frame">
-            <img id="video-feed" src="/video_feed" alt="Live Stream" />
-            <div class="cam-overlay hidden" id="weed-alert">
-              🎯Đã khóa mục tiêu
-            </div>
-            <div class="cam-crosshair"></div>
-          </div>
-        </section>
-
-        <!-- Activity -->
-        <section class="card activity-card">
-          <div class="card-head">
-            <div>
-              <h2>Hoạt Động</h2>
-              <div class="card-sub">20 chu kỳ gần nhất</div>
-            </div>
-          </div>
-          <div class="activity-chart" id="mini-chart"></div>
-          <div class="activity-foot">
-            <div>
-              Trạng Thái<br /><strong id="status-text">ĐANG KHỞI ĐỘNG</strong>
-            </div>
-            <div>Hoạt Động<br /><strong id="uptime">00:00</strong></div>
-          </div>
-        </section>
-      </div>
-
-      <!-- Plant Table -->
-      <section class="card table-card" id="plants">
-        <div class="card-head">
+    <main class="content">
+      <!-- Tab 1: Dashboard -->
+      <div id="dashboard-page">
+        <!-- Header -->
+        <header class="header">
           <div>
-            <h2>Giám Sát Cây Trồng</h2>
-            <div class="card-sub"><span id="plant-count">0 cây</span></div>
+            <h1>Bảng Điều Khiển</h1>
+            <p class="muted">Theo dõi &amp; phân tích tăng trưởng cây trồng</p>
           </div>
-          <div class="table-filters">
-            <input
-              type="text"
-              id="plant-search"
-              placeholder="Tìm ID hoặc loại cây…"
-            />
-            <select id="plant-filter">
-              <option value="all">Tất cả</option>
-              <option value="crop">Cây trồng</option>
-            </select>
+          <div class="header-right">
+            <div class="kpi-mini">
+              <span class="kpi-mini-lbl">FPS</span
+              ><span class="kpi-mini-val" id="fps-badge">0.0</span>
+            </div>
+            <div class="state-pill state-forward" id="state-badge">
+              <span class="state-dot"></span
+              ><span id="state-name">ĐANG CHẠY</span>
+            </div>
+          </div>
+        </header>
+
+        <!-- KPI Row: 4 cards (weed, crop, laser, area) -->
+        <div class="kpi-row">
+          <div class="kpi-card kpi-weed">
+            <div class="kpi-head">
+              <span class="kpi-label">Cỏ dại phát hiện</span><span class="kpi-ico">🍂</span>
+            </div>
+            <div class="kpi-value" id="kpi-weed">0</div>
+            <div class="kpi-bar"><div id="bar-weed"></div></div>
+          </div>
+          <div class="kpi-card kpi-crop">
+            <div class="kpi-head">
+              <span class="kpi-label">Cây trồng theo dõi</span><span class="kpi-ico">🌿</span>
+            </div>
+            <div class="kpi-value" id="kpi-crop">0</div>
+            <div class="kpi-bar"><div id="bar-crop"></div></div>
+          </div>
+          <div class="kpi-card kpi-laser">
+            <div class="kpi-head">
+              <span class="kpi-label">Laser đã bắn</span><span class="kpi-ico">⚡</span>
+            </div>
+            <div class="kpi-value" id="kpi-laser">0</div>
+            <div class="kpi-bar"><div id="bar-laser"></div></div>
+          </div>
+          <div class="kpi-card kpi-area">
+            <div class="kpi-head">
+              <span class="kpi-label">Diện tích trung bình</span><span class="kpi-ico">📐</span>
+            </div>
+            <div class="kpi-value" id="kpi-area">0 px²</div>
+            <div class="kpi-bar"><div id="bar-area"></div></div>
           </div>
         </div>
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Loại</th>
-                <th>Diện Tích</th>
-                <th>Giai Đoạn</th>
-                <th>Sức Khỏe</th>
-                <th class="th-actions"></th>
-              </tr>
-            </thead>
-            <tbody id="plant-tbody">
-              <tr class="empty-row">
-                <td colspan="6">
-                  <div class="empty-state">
-                    <div class="empty-ico">📭</div>
-                    <p>Chưa phát hiện cây nào</p>
-                    <small>Dữ liệu sẽ tự động hiển thị</small>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+
+        <!-- Main Grid: Camera + Activity -->
+        <div class="main-grid">
+          <!-- Camera -->
+          <section class="card camera-card">
+            <div class="card-head">
+              <div>
+                <h2>Camera Trực Tiếp</h2>
+                <div class="card-sub">YOLOv8 · 320 px</div>
+              </div>
+              <span class="badge badge-live">● TRỰC TIẾP</span>
+            </div>
+            <div class="camera-frame">
+              <img id="video-feed" src="/video_feed" alt="Live Stream" />
+              <div class="cam-overlay hidden" id="weed-alert">
+                🎯Đã khóa mục tiêu
+              </div>
+              <div class="cam-crosshair"></div>
+            </div>
+          </section>
+
+          <!-- Activity -->
+          <section class="card activity-card">
+            <div class="card-head">
+              <div>
+                <h2>Hoạt Động</h2>
+                <div class="card-sub">20 chu kỳ gần nhất</div>
+              </div>
+            </div>
+            <div class="activity-chart" id="mini-chart"></div>
+            <div class="activity-foot">
+              <div>
+                Trạng Thái<br /><strong id="status-text">ĐANG KHỞI ĐỘNG</strong>
+              </div>
+              <div>Hoạt Động<br /><strong id="uptime">00:00</strong></div>
+            </div>
+          </section>
         </div>
-      </section>
+
+        <!-- Plant Table -->
+        <section class="card table-card" id="plants">
+          <div class="card-head">
+            <div>
+              <h2>Giám Sát Cây Trồng</h2>
+              <div class="card-sub"><span id="plant-count">0 cây</span></div>
+            </div>
+            <div class="table-filters">
+              <input
+                type="text"
+                id="plant-search"
+                placeholder="Tìm ID hoặc loại cây…"
+              />
+              <select id="plant-filter">
+                <option value="all">Tất cả</option>
+                <option value="crop">Cây trồng</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Loại</th>
+                  <th>Diện Tích</th>
+                  <th>Giai Đoạn</th>
+                  <th>Sức Khỏe</th>
+                  <th class="th-actions"></th>
+                </tr>
+              </thead>
+              <tbody id="plant-tbody">
+                <tr class="empty-row">
+                  <td colspan="6">
+                    <div class="empty-state">
+                      <div class="empty-ico">📭</div>
+                      <p>Chưa phát hiện cây nào</p>
+                      <small>Dữ liệu sẽ tự động hiển thị</small>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- Tab 2: Logs -->
+      <div id="logs-page" style="display: none;">
+        <header class="header">
+          <div>
+            <h1>Nhật Ký Hoạt Động</h1>
+            <p class="muted">Nhật ký hoạt động thời gian thực từ robot</p>
+          </div>
+          <div class="header-right">
+            <button class="btn-analyze" onclick="fetchLogs()" style="margin-top: 0;">🔄 Làm mới</button>
+          </div>
+        </header>
+        
+        <section class="card" style="padding: 20px;">
+          <div id="log-list" style="background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); border-radius: 12px; padding: 20px; font-family: monospace; height: 500px; overflow-y: auto; white-space: pre-wrap; font-size: 0.9rem; color: #a7c4b5; line-height: 1.6;">
+            Đang tải nhật ký...
+          </div>
+        </section>
+      </div>
+
+      <!-- Tab 3: Settings -->
+      <div id="settings-page" style="display: none;">
+        <header class="header">
+          <div>
+            <h1>Cài Đặt Hệ Thống</h1>
+            <p class="muted">Cấu hình động cho robot, camera và laser</p>
+          </div>
+        </header>
+        
+        <section class="card" style="padding: 24px; max-width: 600px;">
+          <form id="settings-form" onsubmit="saveSettings(event)" style="display: flex; flex-direction: column; gap: 20px;">
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <label style="font-weight: 600; font-size: 0.82rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Gemini API Key</label>
+              <input type="text" id="setting-gemini-key" name="gemini_api_key" placeholder="Nhập Gemini API Key..." style="background: var(--bg-surface); border: 1px solid var(--glass-border); border-radius: 8px; padding: 10px; color: #fff; width: 100%; font-family: monospace;">
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <label style="font-weight: 600; font-size: 0.82rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Ngưỡng Nhận Diện (Confidence)</label>
+              <div style="display: flex; align-items: center; gap: 15px;">
+                <input type="range" id="setting-conf" name="conf" min="0.10" max="0.90" step="0.05" style="flex: 1;" oninput="document.getElementById('conf-val').textContent = parseFloat(this.value).toFixed(2)">
+                <span id="conf-val" style="font-weight: 600; width: 45px; text-align: right; color: var(--accent-green);">0.20</span>
+              </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label style="font-weight: 600; font-size: 0.82rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Độ rộng xung Laser (ms)</label>
+                <input type="number" id="setting-laser-pulse" name="laser_pulse_ms" min="10" max="1000" class="btn-analyze" style="background: var(--bg-surface); border: 1px solid var(--glass-border); border-radius: 8px; padding: 10px; color: #fff; margin-top: 0; text-align: left; width: 100%;">
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label style="font-weight: 600; font-size: 0.82rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Số phát bắn tối đa / cỏ</label>
+                <input type="number" id="setting-max-shots" name="max_shots" min="1" max="10" class="btn-analyze" style="background: var(--bg-surface); border: 1px solid var(--glass-border); border-radius: 8px; padding: 10px; color: #fff; margin-top: 0; text-align: left; width: 100%;">
+              </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--glass-border); padding-top: 15px;">
+              <label style="font-weight: 600; font-size: 0.82rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Chế độ Camera</label>
+              <div style="display: flex; gap: 25px; align-items: center; margin-top: 5px;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-primary);">
+                  <input type="radio" name="static_cam" value="true" id="setting-static-true" style="accent-color: var(--accent-green);"> Cố định dưới Servo
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-primary);">
+                  <input type="radio" name="static_cam" value="false" id="setting-static-false" style="accent-color: var(--accent-green);"> Gắn xoay cùng Servo
+                </label>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label style="font-weight: 600; font-size: 0.82rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Độ cao Cam (cm)</label>
+                <input type="number" id="setting-cam-height" name="cam_height" step="0.5" class="btn-analyze" style="background: var(--bg-surface); border: 1px solid var(--glass-border); border-radius: 8px; padding: 10px; color: #fff; margin-top: 0; text-align: left; width: 100%;">
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label style="font-weight: 600; font-size: 0.82rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Độ cao Servo (cm)</label>
+                <input type="number" id="setting-servo-height" name="servo_height" step="0.5" class="btn-analyze" style="background: var(--bg-surface); border: 1px solid var(--glass-border); border-radius: 8px; padding: 10px; color: #fff; margin-top: 0; text-align: left; width: 100%;">
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label style="font-weight: 600; font-size: 0.82rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Góc cúi Cam (độ)</label>
+                <input type="number" id="setting-cam-tilt" name="cam_tilt" step="0.5" class="btn-analyze" style="background: var(--bg-surface); border: 1px solid var(--glass-border); border-radius: 8px; padding: 10px; color: #fff; margin-top: 0; text-align: left; width: 100%;">
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; border-top: 1px solid var(--glass-border); padding-top: 15px;">
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label style="font-weight: 600; font-size: 0.82rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Bù góc Pan (độ)</label>
+                <input type="number" id="setting-offset-pan" name="offset_pan" step="0.1" class="btn-analyze" style="background: var(--bg-surface); border: 1px solid var(--glass-border); border-radius: 8px; padding: 10px; color: #fff; margin-top: 0; text-align: left; width: 100%;">
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label style="font-weight: 600; font-size: 0.82rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Bù góc Tilt (độ)</label>
+                <input type="number" id="setting-offset-tilt" name="offset_tilt" step="0.1" class="btn-analyze" style="background: var(--bg-surface); border: 1px solid var(--glass-border); border-radius: 8px; padding: 10px; color: #fff; margin-top: 0; text-align: left; width: 100%;">
+              </div>
+            </div>
+
+            <button type="submit" class="btn-analyze" style="margin-top: 10px; width: 100%; justify-content: center; font-weight: 700; background: var(--gradient-primary); color: #fff; border: none; height: 42px;">💾 Lưu Cấu Hình</button>
+          </form>
+        </section>
+      </div>
     </main>
 
     <!-- ========== PLANT DETAIL MODAL ========== -->
@@ -215,6 +311,41 @@
               </div>
               <div class="info-item info-item-wide">
                 <span>Sức Khỏe</span><strong id="modal-health">—</strong>
+              </div>
+            </div>
+
+            <!-- Nút Phân Tích AI -->
+            <button class="btn-analyze" id="btn-ai-analyze" onclick="triggerAiAnalyze()">
+              <span id="ai-btn-text">🔬 Phân Tích AI</span>
+              <span class="spinner" id="ai-spinner" style="display: none;"></span>
+            </button>
+
+            <!-- Kết Quả Phân Tích AI (Gemini) -->
+            <div class="ai-result" id="ai-result-card" style="display: none;">
+              <div class="ai-result-header">
+                <span>🤖 Kết quả phân tích Gemini AI</span>
+              </div>
+              <div class="ai-result-body">
+                <div class="ai-field">
+                  <span class="ai-field-label">Loại Cây</span>
+                  <span class="ai-field-value" id="gemini-type">-</span>
+                </div>
+                <div class="ai-field">
+                  <span class="ai-field-label">Giai đoạn phát triển</span>
+                  <span class="ai-field-value" id="gemini-stage">-</span>
+                </div>
+                <div class="ai-field">
+                  <span class="ai-field-label">Tình trạng sức khỏe</span>
+                  <span class="ai-field-value" id="gemini-health">-</span>
+                </div>
+                <div class="ai-field">
+                  <span class="ai-field-label">Nhận xét chi tiết</span>
+                  <span class="ai-field-value ai-long" id="gemini-obs">-</span>
+                </div>
+                <div class="ai-field">
+                  <span class="ai-field-label">Khuyến nghị chăm sóc</span>
+                  <span class="ai-field-value ai-long" id="gemini-rec">-</span>
+                </div>
               </div>
             </div>
 
@@ -304,6 +435,10 @@
           img.removeAttribute("src");
           img.style.display = "none";
         }
+        
+        // Reset kết quả AI trước đó
+        displayGeminiResult(null);
+
         document.getElementById("plant-modal").hidden = false;
 
         fetch(`/api/plants/${p.id}`)
@@ -316,6 +451,10 @@
                 d.description.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>") +
                 "</p>";
             else el.innerHTML = "";
+
+            if (d.gemini_result && Object.keys(d.gemini_result).length > 0) {
+              displayGeminiResult(d.gemini_result);
+            }
           })
           .catch(() => {});
 
@@ -346,6 +485,167 @@
       function closeModal() {
         document.getElementById("plant-modal").hidden = true;
       }
+
+      async function triggerAiAnalyze() {
+        const modalTitle = document.getElementById("modal-title").textContent;
+        const plantId = parseInt(modalTitle.replace("Cây #", ""));
+        if (isNaN(plantId)) return;
+
+        const btn = document.getElementById("btn-ai-analyze");
+        const spinner = document.getElementById("ai-spinner");
+        const btnText = document.getElementById("ai-btn-text");
+
+        btn.disabled = true;
+        spinner.style.display = "inline-block";
+        btnText.textContent = "Đang phân tích...";
+
+        try {
+          const res = await fetch(`/api/plants/${plantId}/analyze`, { method: "POST" });
+          const data = await res.json();
+          if (res.ok && data.status === "success" && data.result) {
+            displayGeminiResult(data.result);
+          } else {
+            alert("Lỗi: " + (data.error || "Không có phản hồi từ máy chủ."));
+          }
+        } catch (e) {
+          console.error(e);
+          alert("Lỗi kết nối tới máy chủ.");
+        } finally {
+          btn.disabled = false;
+          spinner.style.display = "none";
+          btnText.textContent = "🔬 Phân Tích AI";
+        }
+      }
+
+      function displayGeminiResult(res) {
+        const card = document.getElementById("ai-result-card");
+        if (!res || Object.values(res).every(v => v === "")) {
+          card.style.display = "none";
+          return;
+        }
+        document.getElementById("gemini-type").textContent = res.plant_type || "Không xác định";
+        document.getElementById("gemini-stage").textContent = res.growth_stage || "Không xác định";
+        document.getElementById("gemini-health").textContent = res.health_status || "Không xác định";
+        document.getElementById("gemini-obs").textContent = res.observation || "Không có nhận xét";
+        document.getElementById("gemini-rec").textContent = res.recommendation || "Không có khuyến nghị";
+        card.style.display = "block";
+      }
+
+      // TAB NAVIGATION
+      function switchPage(pageId) {
+        // Remove active class from all nav items
+        document.querySelectorAll('.nav-item').forEach(item => {
+          item.classList.remove('active');
+          if (item.getAttribute('href') === '#' + pageId) {
+            item.classList.add('active');
+          }
+        });
+
+        // Hide all pages
+        document.getElementById('dashboard-page').style.display = 'none';
+        document.getElementById('logs-page').style.display = 'none';
+        document.getElementById('settings-page').style.display = 'none';
+
+        // Show selected page
+        if (pageId === 'dashboard' || pageId === 'plants') {
+          document.getElementById('dashboard-page').style.display = 'block';
+          if (pageId === 'plants') {
+            document.getElementById('plants').scrollIntoView({ behavior: 'smooth' });
+          }
+        } else if (pageId === 'logs') {
+          document.getElementById('logs-page').style.display = 'block';
+          fetchLogs();
+        } else if (pageId === 'settings') {
+          document.getElementById('settings-page').style.display = 'block';
+          loadSettings();
+        }
+      }
+
+      // Add click listeners to nav links
+      document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+          e.preventDefault();
+          const target = item.getAttribute('href').substring(1);
+          switchPage(target);
+        });
+      });
+
+      // LOGS TAB
+      async function fetchLogs() {
+        const container = document.getElementById("log-list");
+        container.textContent = "Đang tải nhật ký từ hệ thống...";
+        try {
+          const res = await fetch("/api/logs");
+          const logs = await res.json();
+          container.textContent = Array.isArray(logs) ? logs.join("\n") : logs;
+          container.scrollTop = container.scrollHeight; // Scroll to bottom
+        } catch (e) {
+          container.textContent = "Lỗi tải nhật ký: " + e;
+        }
+      }
+
+      // SETTINGS TAB
+      async function loadSettings() {
+        try {
+          const res = await fetch("/api/settings");
+          const s = await res.json();
+          
+          document.getElementById("setting-gemini-key").value = s.gemini_api_key || "";
+          document.getElementById("setting-conf").value = s.conf;
+          document.getElementById("conf-val").textContent = parseFloat(s.conf).toFixed(2);
+          document.getElementById("setting-laser-pulse").value = s.laser_pulse_ms;
+          document.getElementById("setting-max-shots").value = s.max_shots;
+          
+          if (s.static_cam) {
+            document.getElementById("setting-static-true").checked = true;
+          } else {
+            document.getElementById("setting-static-false").checked = true;
+          }
+          
+          document.getElementById("setting-cam-height").value = s.cam_height;
+          document.getElementById("setting-servo-height").value = s.servo_height;
+          document.getElementById("setting-cam-tilt").value = s.cam_tilt;
+          
+          document.getElementById("setting-offset-pan").value = s.offset_pan;
+          document.getElementById("setting-offset-tilt").value = s.offset_tilt;
+        } catch (e) {
+          console.error("Lỗi tải cấu hình:", e);
+        }
+      }
+
+      async function saveSettings(e) {
+        e.preventDefault();
+        const gemini_api_key = document.getElementById("setting-gemini-key").value.trim();
+        const conf = parseFloat(document.getElementById("setting-conf").value);
+        const laser_pulse_ms = parseInt(document.getElementById("setting-laser-pulse").value);
+        const max_shots = parseInt(document.getElementById("setting-max-shots").value);
+        const static_cam = document.getElementById("setting-static-true").checked;
+        const cam_height = parseFloat(document.getElementById("setting-cam-height").value);
+        const servo_height = parseFloat(document.getElementById("setting-servo-height").value);
+        const cam_tilt = parseFloat(document.getElementById("setting-cam-tilt").value);
+        const offset_pan = parseFloat(document.getElementById("setting-offset-pan").value);
+        const offset_tilt = parseFloat(document.getElementById("setting-offset-tilt").value);
+        
+        try {
+          const res = await fetch("/api/settings", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              gemini_api_key, conf, laser_pulse_ms, max_shots, static_cam,
+              cam_height, servo_height, cam_tilt, offset_pan, offset_tilt
+            })
+          });
+          const data = await res.json();
+          if (res.ok && data.status === "success") {
+            alert("Đã lưu cấu hình thành công!");
+          } else {
+            alert("Lỗi lưu cấu hình: " + (data.error || "Không có phản hồi."));
+          }
+        } catch (e) {
+          alert("Lỗi kết nối tới máy chủ.");
+        }
+      }
+
       document.getElementById("plant-modal").addEventListener("click", (e) => {
         if (e.target === e.currentTarget) closeModal();
       });
@@ -373,9 +673,11 @@
             pl = await p.json();
           currentPlants = pl;
 
-          const mx = Math.max(st.crop_detected, pl.length, 10);
-          document.getElementById("kpi-weed").textContent = st.crop_detected;
+          const mx = Math.max(st.weed_detected, st.crop_detected, st.laser_fired, pl.length, 10);
+          document.getElementById("kpi-weed").textContent = st.weed_detected;
           document.getElementById("kpi-crop").textContent = st.crop_detected;
+          document.getElementById("kpi-laser").textContent = st.laser_fired;
+          
           // Tính diện tích trung bình
           const avgArea =
             pl.length > 0
@@ -383,10 +685,11 @@
               : 0;
           document.getElementById("kpi-area").textContent =
             avgArea.toLocaleString() + " px²";
-          document.getElementById("kpi-plants").textContent = pl.length;
+
+          setBar("bar-weed", st.weed_detected, mx);
           setBar("bar-crop", st.crop_detected, mx);
+          setBar("bar-laser", st.laser_fired, mx);
           setBar("bar-area", avgArea, Math.max(mx, avgArea));
-          setBar("bar-plants", pl.length, mx);
 
           document.getElementById("fps-badge").textContent = st.fps.toFixed(1);
           document.getElementById("state-name").textContent = st.state;

@@ -88,7 +88,7 @@ class MotorCommander:
 
 def _update_plant_tracker(
     detections: list, plant_tracker: dict, plant_counter: int,
-    frame, w: int, h: int, now: float,
+    frame, w: int, h: int, now: float, csv_logger: Optional[Any] = None,
 ) -> int:
     """Track crop plants for web dashboard. Returns updated plant_counter."""
     current_crops = []
@@ -161,13 +161,27 @@ def _update_plant_tracker(
             image_path=image_path, description=desc,
         ))
         state.add_growth_record(pid, area, stage)
+
+        if csv_logger is not None:
+            gemini_res = state.get_gemini_result(pid) or {}
+            gemini_str = f"Type: {gemini_res.get('plant_type', '')}, Health: {gemini_res.get('health_status', '')}" if gemini_res else ""
+            csv_logger.log_plant(
+                plant_id=pid,
+                plant_type="Crop",
+                area=area,
+                height=h_px,
+                width=w_px,
+                stage=stage,
+                health=health,
+                gemini_analysis=gemini_str
+            )
     return plant_counter
 
 
 def run_system(
     model_path: str | Path = "models/best.pt",
     camera_index: int = 0,
-    conf: float = 0.2,
+    conf: float | None = None,
     target_class_id: int = 1,
     target_fps: float = 10.0,
     show_window: bool = False,
@@ -178,38 +192,108 @@ def run_system(
     laser_deadband_x: float = 25.0,
     laser_deadband_y: float = 25.0,
     stable_frames_required: int = 3,
-    offset_pan: float = 0.0,
-    offset_tilt: float = 0.0,
+    offset_pan: float | None = None,
+    offset_tilt: float | None = None,
     enable_web: bool = False,
     web_port: int = 5000,
-    laser_pulse_ms: int = 50,
-    max_shots_per_weed: int = 3,
+    laser_pulse_ms: int | None = None,
+    max_shots_per_weed: int | None = None,
     state_timeout_sec: float = 30.0,
     cooldown_sec: float = 0.5,
     settle_sec: float = 0.3,
     resume_delay_sec: float = 1.5,
     log_file: str | None = "logs/weed_system.log",
     dry_run: bool = False,
+    enable_csv_log: bool = False,
+    save_detections: bool = False,
+    static_cam: bool | None = None,
+    cam_height: float | None = None,
+    servo_height: float | None = None,
+    cam_tilt: float | None = None,
 ) -> None:
     log = setup_logging(log_file)
     log.info("=" * 60)
     log.info("Weed Detection System starting...")
+
+    # Cập nhật dynamic settings trong SharedState từ CLI args nếu người dùng truyền vào (khác None)
+    updates = {}
+    if conf is not None: updates["conf"] = conf
+    if laser_pulse_ms is not None: updates["laser_pulse_ms"] = laser_pulse_ms
+    if max_shots_per_weed is not None: updates["max_shots"] = max_shots_per_weed
+    if static_cam is not None: updates["static_cam"] = static_cam
+    if cam_height is not None: updates["cam_height"] = cam_height
+    if servo_height is not None: updates["servo_height"] = servo_height
+    if cam_tilt is not None: updates["cam_tilt"] = cam_tilt
+    if offset_pan is not None: updates["offset_pan"] = offset_pan
+    if offset_tilt is not None: updates["offset_tilt"] = offset_tilt
+
+    if updates:
+        state.update_settings(**updates)
+
+    # Đọc các giá trị dynamic settings cuối cùng để sử dụng
+    dyn_settings = state.get_settings()
+    conf = dyn_settings["conf"]
+    laser_pulse_ms = dyn_settings["laser_pulse_ms"]
+    max_shots_per_weed = dyn_settings["max_shots"]
+    static_cam = dyn_settings["static_cam"]
+    cam_height = dyn_settings["cam_height"]
+    servo_height = dyn_settings["servo_height"]
+    cam_tilt = dyn_settings["cam_tilt"]
+    offset_pan = dyn_settings["offset_pan"]
+    offset_tilt = dyn_settings["offset_tilt"]
+
     log.info(f"Model: {model_path} | fps: {target_fps} | pulse: {laser_pulse_ms}ms")
+    
+    # Khởi tạo CameraConfig cho tính toán góc servo
+    camera_config = CameraConfig(
+        is_static=static_cam,
+        cam_height=cam_height,
+        servo_height=servo_height,
+        cam_tilt=cam_tilt,
+        offset_pan=offset_pan,
+        offset_tilt=offset_tilt,
+    )
+    log.info(f"[MAIN] Cấu hình Camera: Static={static_cam}, CamHeight={cam_height}cm, ServoHeight={servo_height}cm, Tilt={cam_tilt}°")
+
     if dry_run:
         log.info("🔍 DRY-RUN MODE: laser sẽ KHÔNG bắn thật, chỉ vẽ aim point")
 
+    # Khởi tạo CSV Logger & Frame Saver
+    csv_logger = None
+    if enable_csv_log:
+        try:
+            from utils.data_logger import CSVLogger
+            csv_logger = CSVLogger()
+            log.info("[MAIN] Khởi tạo CSV Logger thành công")
+        except Exception as e:
+            log.error(f"[MAIN] Lỗi khởi tạo CSV Logger: {e}")
+
+    frame_saver = None
+    if save_detections:
+        try:
+            from utils.data_logger import DetectionFrameSaver
+            frame_saver = DetectionFrameSaver()
+            log.info("[MAIN] Khởi tạo Detection Frame Saver thành công")
+        except Exception as e:
+            log.error(f"[MAIN] Lỗi khởi tạo Detection Frame Saver: {e}")
+
     model = load_model(model_path)
 
+    is_mock = False
     # Camera
     try:
         from utils.camera_pi import open_camera
         log.info(f"Opening camera (picam2={use_picam2}, index={camera_index}) ...")
         cap = open_camera(camera_index=camera_index, use_picam2=use_picam2)
-    except Exception:
-        log.info(f"Opening camera index {camera_index} (OpenCV) ...")
-        cap = cv2.VideoCapture(camera_index)
-    if not cap.isOpened():
-        raise RuntimeError(f"Cannot open camera index {camera_index}")
+    except Exception as e:
+        log.warning(f"Error opening camera: {e}")
+        cap = None
+
+    if cap is None or not cap.isOpened():
+        log.warning("Cannot open any physical camera index. Falling back to Mock Camera Simulation!")
+        is_mock = True
+        from utils.mock_camera import MockVideoCapture
+        cap = MockVideoCapture()
 
     # GPIO
     if GPIO is not None and GPIO.getmode() is None:
@@ -245,6 +329,8 @@ def run_system(
 
     log.info(f"Offset: pan={offset_pan} tilt={offset_tilt} "
              f"| Servo: {SERVO_ANGLE_MIN}-{SERVO_ANGLE_MAX}")
+
+
 
     # Web dashboard
     if enable_web:
@@ -283,28 +369,45 @@ def run_system(
 
     try:
         while True:
-            ret, frame = cap.read()
-            if not ret or frame is None:
-                log.warning("Failed to read frame, retrying...")
-                time.sleep(0.1)
-                continue
+            # Đọc cài đặt động từ SharedState ở mỗi chu kỳ
+            dyn_settings = state.get_settings()
+            conf = dyn_settings.get("conf", conf)
+            laser_pulse_ms = dyn_settings.get("laser_pulse_ms", laser_pulse_ms)
+            max_shots_per_weed = dyn_settings.get("max_shots", max_shots_per_weed)
+            camera_config.is_static = dyn_settings.get("static_cam", camera_config.is_static)
+            camera_config.cam_height = dyn_settings.get("cam_height", camera_config.cam_height)
+            camera_config.servo_height = dyn_settings.get("servo_height", camera_config.servo_height)
+            camera_config.cam_tilt = dyn_settings.get("cam_tilt", camera_config.cam_tilt)
+            camera_config.offset_pan = dyn_settings.get("offset_pan", camera_config.offset_pan)
+            camera_config.offset_tilt = dyn_settings.get("offset_tilt", camera_config.offset_tilt)
 
+            if is_mock:
+                frame, detections = cap.read_mock(sm_state, pan_angle, tilt_angle)
+                ret = True
+            else:
+                ret, frame = cap.read()
+                if not ret or frame is None:
+                    log.warning("Failed to read frame, retrying...")
+                    time.sleep(0.1)
+                    continue
+
+                results_list = model.predict(source=frame, conf=conf,
+                                             verbose=False, imgsz=imgsz)
+
+                detections = []
+                if results_list:
+                    boxes = results_list[0].boxes
+                    if boxes is not None and len(boxes) > 0:
+                        for box in boxes:
+                            cls_id = int(box.cls[0].item())
+                            score = float(box.conf[0].item())
+                            x1, y1, x2, y2 = box.xyxy[0].tolist()
+                            detections.append((cls_id, score, x1, y1, x2, y2))
+
+            orig_frame = frame.copy() if frame_saver is not None else None
             h, w = frame.shape[:2]
             center_x = w / 2.0
             center_y = h / 2.0
-
-            results_list = model.predict(source=frame, conf=conf,
-                                         verbose=False, imgsz=imgsz)
-
-            detections = []
-            if results_list:
-                boxes = results_list[0].boxes
-                if boxes is not None and len(boxes) > 0:
-                    for box in boxes:
-                        cls_id = int(box.cls[0].item())
-                        score = float(box.conf[0].item())
-                        x1, y1, x2, y2 = box.xyxy[0].tolist()
-                        detections.append((cls_id, score, x1, y1, x2, y2))
 
             weed_det = None
             best_weed_dist = float("inf")
@@ -353,10 +456,10 @@ def run_system(
                 frame_count = 0
                 fps_update_time = now
 
-            # Web dashboard update
-            if enable_web:
+            # Web dashboard update & detection logging/saving
+            if enable_web or frame_saver is not None:
                 plant_counter = _update_plant_tracker(
-                    detections, plant_tracker, plant_counter, frame, w, h, now,
+                    detections, plant_tracker, plant_counter, frame, w, h, now, csv_logger
                 )
                 state.update_stats(
                     weed_detected=weed_detected_total,
@@ -382,7 +485,17 @@ def run_system(
                     label += " [DRY-RUN]"
                 cv2.putText(web_frame, label, (10, 25),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-                state.update_frame(web_frame)
+                
+                if enable_web:
+                    state.update_frame(web_frame)
+
+                # Lưu ảnh detection (cap 1 FPS để tiết kiệm I/O)
+                if frame_saver is not None and len(detections) > 0:
+                    if not hasattr(run_system, "_last_save_time"):
+                        run_system._last_save_time = 0.0
+                    if now - run_system._last_save_time >= 1.0:
+                        run_system._last_save_time = now
+                        frame_saver.save(orig_frame, web_frame, prefix="det")
 
             # ========== STATE MACHINE ==========
             if sm_state == "FORWARD":
@@ -414,25 +527,49 @@ def run_system(
                     error_x = weed_x - center_x
                     error_y = weed_y - center_y
 
-                    new_pan = max(SERVO_ANGLE_MIN, min(SERVO_ANGLE_MAX,
-                        pan_angle + error_x * pan_gain + offset_pan))
-                    new_tilt = max(SERVO_ANGLE_MIN, min(SERVO_ANGLE_MAX,
-                        tilt_angle + error_y * tilt_gain + offset_tilt))
+                    if camera_config.is_static:
+                        # Open-loop geometric mapping for static/fixed camera setup
+                        from utils.coordinate_convert import pixel_to_servo_angles
+                        new_pan, new_tilt = pixel_to_servo_angles(
+                            (weed_x, weed_y), (w, h), camera_config
+                        )
+                        
+                        angle_change = abs(new_pan - pan_angle) + abs(new_tilt - tilt_angle)
+                        if angle_change > 2.0:
+                            settle_until = max(settle_until, now + settle_sec + angle_change * 0.005)
 
-                    angle_change = abs(new_pan - pan_angle) + abs(new_tilt - tilt_angle)
-                    if angle_change > 5.0:
-                        settle_until = max(settle_until,
-                                           now + 0.1 + angle_change * 0.005)
+                        pan_angle, tilt_angle = new_pan, new_tilt
+                        servo.set_angle(pan=pan_angle, tilt=tilt_angle)
 
-                    pan_angle, tilt_angle = new_pan, new_tilt
-                    servo.set_angle(pan=pan_angle, tilt=tilt_angle)
+                        # In static camera mode, alignment is guaranteed once the servo settles
+                        if now >= settle_until:
+                            stable_hits += 1
+                        else:
+                            stable_hits = 0
 
-                    aligned = (abs(error_x) < laser_deadband_x and
-                               abs(error_y) < laser_deadband_y)
-                    stable_hits = stable_hits + 1 if aligned else 0
+                        if stable_hits >= stable_frames_required:
+                            sm_state = "FIRING"
+                    else:
+                        # Closed-loop proportional tracking for camera mounted on the servo
+                        new_pan = max(SERVO_ANGLE_MIN, min(SERVO_ANGLE_MAX,
+                            pan_angle + error_x * pan_gain + offset_pan))
+                        new_tilt = max(SERVO_ANGLE_MIN, min(SERVO_ANGLE_MAX,
+                            tilt_angle + error_y * tilt_gain + offset_tilt))
 
-                    if stable_hits >= stable_frames_required and now >= settle_until:
-                        sm_state = "FIRING"
+                        angle_change = abs(new_pan - pan_angle) + abs(new_tilt - tilt_angle)
+                        if angle_change > 5.0:
+                            settle_until = max(settle_until,
+                                               now + 0.1 + angle_change * 0.005)
+
+                        pan_angle, tilt_angle = new_pan, new_tilt
+                        servo.set_angle(pan=pan_angle, tilt=tilt_angle)
+
+                        aligned = (abs(error_x) < laser_deadband_x and
+                                   abs(error_y) < laser_deadband_y)
+                        stable_hits = stable_hits + 1 if aligned else 0
+
+                        if stable_hits >= stable_frames_required and now >= settle_until:
+                            sm_state = "FIRING"
 
                     if show_window:
                         cv2.rectangle(frame, (int(x1), int(y1)),
@@ -564,7 +701,7 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Pi weed detection system")
     p.add_argument("--model", default="models/best.pt")
     p.add_argument("--camera", type=int, default=0)
-    p.add_argument("--conf", type=float, default=0.2)
+    p.add_argument("--conf", type=float, default=None)
     p.add_argument("--fps", type=float, default=10.0)
     p.add_argument("--imgsz", type=int, default=320)
     p.add_argument("--show", action="store_true")
@@ -575,12 +712,12 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--laser-deadband-x", type=float, default=25.0)
     p.add_argument("--laser-deadband-y", type=float, default=25.0)
     p.add_argument("--stable-frames", type=int, default=3)
-    p.add_argument("--offset-pan", type=float, default=0.0)
-    p.add_argument("--offset-tilt", type=float, default=0.0)
+    p.add_argument("--offset-pan", type=float, default=None)
+    p.add_argument("--offset-tilt", type=float, default=None)
     p.add_argument("--web", action="store_true")
     p.add_argument("--web-port", type=int, default=5000)
-    p.add_argument("--laser-pulse-ms", type=int, default=50)
-    p.add_argument("--max-shots", type=int, default=3)
+    p.add_argument("--laser-pulse-ms", type=int, default=None)
+    p.add_argument("--max-shots", type=int, default=None)
     p.add_argument("--state-timeout-sec", type=float, default=30.0)
     p.add_argument("--cooldown-sec", type=float, default=0.5)
     p.add_argument("--settle-sec", type=float, default=0.3)
@@ -588,6 +725,20 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--log-file", default="logs/weed_system.log")
     p.add_argument("--dry-run", action="store_true",
                    help="Kiểm tra aim: vẽ aim point, KHÔNG bắn laser thật")
+    p.add_argument("--csv-log", action="store_true",
+                   help="Bật ghi lịch sử cây trồng ra file CSV")
+    p.add_argument("--save-detections", action="store_true",
+                   help="Bật lưu ảnh gốc và ảnh detect")
+    p.add_argument("--static-cam", action="store_true", default=None,
+                   help="Bật chế độ camera cố định (webcam không quay theo servo)")
+    p.add_argument("--no-static-cam", action="store_false", dest="static_cam",
+                   help="Tắt chế độ camera cố định (camera quay cùng servo)")
+    p.add_argument("--cam-height", type=float, default=None,
+                   help="Độ cao của camera cách mặt đất (cm)")
+    p.add_argument("--servo-height", type=float, default=None,
+                   help="Độ cao của servo xoay laser (cm)")
+    p.add_argument("--cam-tilt", type=float, default=None,
+                   help="Góc chếch/cúi của camera so với phương ngang (độ)")
     return p.parse_args()
 
 
@@ -619,4 +770,10 @@ if __name__ == "__main__":
         resume_delay_sec=args.resume_delay_sec,
         log_file=args.log_file or None,
         dry_run=args.dry_run,
+        enable_csv_log=args.csv_log,
+        save_detections=args.save_detections,
+        static_cam=args.static_cam,
+        cam_height=args.cam_height,
+        servo_height=args.servo_height,
+        cam_tilt=args.cam_tilt,
     )

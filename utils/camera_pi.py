@@ -93,6 +93,16 @@ def open_camera(
     if not cap.isOpened():
         cap = cv2.VideoCapture(camera_index)
     if not cap.isOpened():
+        # Quét các index khác (0 đến 5) để tìm webcam khả dụng
+        for idx in range(6):
+            if idx == camera_index:
+                continue
+            # Thử mở camera index idx
+            test_cap = cv2.VideoCapture(idx)
+            if test_cap.isOpened():
+                test_cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+                test_cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+                return test_cap
         raise RuntimeError(f"Cannot open camera index {camera_index}")
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)

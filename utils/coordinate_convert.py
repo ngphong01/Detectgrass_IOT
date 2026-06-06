@@ -24,6 +24,11 @@ class CameraConfig:
     # Calibration: offset sau khi đổi pixel → góc (laser bắn trúng tâm)
     offset_pan: float = 0.0
     offset_tilt: float = 0.0
+    # Physical calibration for static camera
+    is_static: bool = True
+    cam_height: float = 10.0      # cm (webcam cách mặt đất 10cm)
+    servo_height: float = 15.0    # cm (servo ở độ cao 15cm)
+    cam_tilt: float = 27.5        # degrees (chếch 25-30 độ hướng xuống)
 
 
 def clamp(value: float, vmin: float, vmax: float) -> float:
@@ -61,18 +66,52 @@ def pixel_to_servo_angles(
     cx, cy = center
     w, h = img_size
 
-    # Normalize to [-0.5, 0.5] where 0 is center
-    nx = (cx / w) - 0.5
-    ny = (cy / h) - 0.5
+    if cfg.is_static:
+        import math
+        # Normalize to [-0.5, 0.5] where 0 is center
+        nx = (cx / w) - 0.5
+        ny = (cy / h) - 0.5  # ny > 0 is lower half (closer), ny < 0 is upper half (further)
 
-    # Convert to angles using FOV (negative nx -> pan left, positive -> right)
-    angle_x = -nx * cfg.fov_h
-    angle_y = ny * cfg.fov_v  # positive ny -> object lower -> tilt down
+        # Pan angle mapping (horizontal)
+        angle_x = -nx * cfg.fov_h
+        pan = clamp(cfg.servo_center_pan + angle_x + cfg.offset_pan, cfg.servo_min_pan, cfg.servo_max_pan)
 
-    pan = clamp(cfg.servo_center_pan + angle_x + cfg.offset_pan, cfg.servo_min_pan, cfg.servo_max_pan)
-    tilt = clamp(cfg.servo_center_tilt + angle_y + cfg.offset_tilt, cfg.servo_min_tilt, cfg.servo_max_tilt)
+        # Tilt angle mapping (vertical, geometric correction for camera tilt & height offset)
+        cam_tilt_rad = math.radians(cfg.cam_tilt)
+        angle_y_rad = math.radians(ny * cfg.fov_v)
+        
+        # Target angle relative to the horizontal plane
+        target_tilt_rad = cam_tilt_rad + angle_y_rad
+        target_tilt_rad = clamp(target_tilt_rad, math.radians(5.0), math.radians(85.0))
+        
+        # Ground distance from camera base projection to target
+        distance_ground = cfg.cam_height / math.tan(target_tilt_rad)
+        
+        # Angle from servo to target on ground
+        beta_rad = math.atan(cfg.servo_height / max(0.1, distance_ground))
+        beta_deg = math.degrees(beta_rad)
+        
+        # Center calibration factor
+        beta_center_rad = math.atan(cfg.servo_height / (cfg.cam_height / math.tan(cam_tilt_rad)))
+        beta_center_deg = math.degrees(beta_center_rad)
+        
+        tilt_diff = beta_deg - beta_center_deg
+        tilt = clamp(cfg.servo_center_tilt + tilt_diff + cfg.offset_tilt, cfg.servo_min_tilt, cfg.servo_max_tilt)
+        
+        return pan, tilt
+    else:
+        # Normalize to [-0.5, 0.5] where 0 is center
+        nx = (cx / w) - 0.5
+        ny = (cy / h) - 0.5
 
-    return pan, tilt
+        # Convert to angles using FOV (negative nx -> pan left, positive -> right)
+        angle_x = -nx * cfg.fov_h
+        angle_y = ny * cfg.fov_v  # positive ny -> object lower -> tilt down
+
+        pan = clamp(cfg.servo_center_pan + angle_x + cfg.offset_pan, cfg.servo_min_pan, cfg.servo_max_pan)
+        tilt = clamp(cfg.servo_center_tilt + angle_y + cfg.offset_tilt, cfg.servo_min_tilt, cfg.servo_max_tilt)
+
+        return pan, tilt
 
 
 def yolo_bbox_to_servo_angles(

@@ -10,9 +10,12 @@ from __future__ import annotations
 import os
 import threading
 import time
+import json
 from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Any
+
+SETTINGS_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config", "settings.json")
 
 import cv2
 
@@ -82,6 +85,7 @@ class PlantInfo:
     last_seen: float
     image_path: str = ""
     description: str = ""
+    gemini_result: dict | None = None
 
 
 class SharedState:
@@ -103,6 +107,48 @@ class SharedState:
         self._plant_history: dict[int, list[dict[str, Any]]] = {}
         self._start_time = time.time()
         os.makedirs(CAPTURE_DIR, exist_ok=True)
+        
+        # Cấu hình cài đặt động
+        self._settings: dict[str, Any] = {
+            "conf": 0.2,
+            "laser_pulse_ms": 50,
+            "max_shots": 3,
+            "static_cam": True,
+            "cam_height": 10.0,
+            "servo_height": 15.0,
+            "cam_tilt": 27.5,
+            "offset_pan": 0.0,
+            "offset_tilt": 0.0,
+            "gemini_api_key": "",
+        }
+        self._load_settings()
+
+    def _load_settings(self) -> None:
+        try:
+            if os.path.exists(SETTINGS_PATH):
+                with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    self._settings.update(data)
+        except Exception as e:
+            print(f"[SETTINGS] Lỗi tải cấu hình: {e}")
+
+    def _save_settings(self) -> None:
+        try:
+            os.makedirs(os.path.dirname(SETTINGS_PATH), exist_ok=True)
+            with open(SETTINGS_PATH, "w", encoding="utf-8") as f:
+                json.dump(self._settings, f, indent=4)
+        except Exception as e:
+            print(f"[SETTINGS] Lỗi lưu cấu hình: {e}")
+
+    # ---- Settings ----
+    def get_settings(self) -> dict[str, Any]:
+        with self._lock:
+            return dict(self._settings)
+
+    def update_settings(self, **kwargs: Any) -> None:
+        with self._lock:
+            self._settings.update(kwargs)
+            self._save_settings()
 
     # ---- Frame ----
     def update_frame(self, frame: Any) -> None:
@@ -160,7 +206,35 @@ class SharedState:
                 "last_seen": p.last_seen,
                 "has_image": bool(p.image_path and os.path.exists(p.image_path)),
                 "description": p.description,
+                "gemini_result": p.gemini_result or {},
             }
+
+    def set_gemini_result(self, plant_id: int, result: dict[str, str]) -> None:
+        with self._lock:
+            p = self._plants.get(plant_id)
+            if p is not None:
+                p.gemini_result = result
+
+    def update_plant_from_gemini(self, plant_id: int, result: dict[str, str]) -> None:
+        with self._lock:
+            p = self._plants.get(plant_id)
+            if p is not None:
+                if result.get("plant_type"):
+                    p.plant_type = result["plant_type"]
+                if result.get("growth_stage"):
+                    p.stage = result["growth_stage"]
+                if result.get("health_status"):
+                    p.health = result["health_status"]
+                obs = result.get("observation", "")
+                rec = result.get("recommendation", "")
+                p.description = f"**Nhận định AI:** {obs}\n\n**Khuyến nghị:** {rec}"
+
+    def get_gemini_result(self, plant_id: int) -> dict[str, str] | None:
+        with self._lock:
+            p = self._plants.get(plant_id)
+            if p is not None:
+                return p.gemini_result
+            return None
 
     # ---- Plant images ----
     def save_plant_image(self, plant_id: int, crop_image: Any) -> str:

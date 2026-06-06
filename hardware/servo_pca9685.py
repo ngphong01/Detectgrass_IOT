@@ -21,7 +21,7 @@ from hardware.wiring import WIRING
 try:
     from adafruit_servokit import ServoKit
     _SERVOKIT = ServoKit
-except ImportError:
+except Exception:
     _SERVOKIT = None  # type: ignore
 
 @dataclass

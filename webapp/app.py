@@ -21,7 +21,7 @@ import time
 
 import cv2
 import numpy as np
-from flask import Flask, Response, jsonify, render_template, send_file
+from flask import Flask, Response, jsonify, render_template, send_file, request
 
 from utils.shared_state import CAPTURE_DIR, state
 
@@ -135,6 +135,85 @@ def api_plant_history(plant_id: int):
     resp = jsonify(state.get_plant_history(plant_id))
     resp.headers["Cache-Control"] = "no-store"
     return resp
+
+
+@app.route("/api/plants/<int:plant_id>/analyze", methods=["POST"])
+def api_plant_analyze(plant_id: int):
+    """Gửi ảnh cây trồng sang Gemini Vision để phân tích."""
+    plant = state.get_plant(plant_id)
+    if plant is None:
+        return jsonify({"error": "Plant not found"}), 404
+
+    image_path = state.get_plant_image_path(plant_id)
+    if image_path is None or not os.path.exists(image_path):
+        return jsonify({"error": "No image available for this plant"}), 400
+
+    try:
+        from utils.gemini_vision import analyzer
+        if not analyzer.is_available:
+            return jsonify({"error": "Gemini API is not configured. Please set GEMINI_API_KEY environment variable."}), 503
+
+        # Call Gemini analyzer (this has internal cache)
+        result = analyzer.analyze_plant(image_path=image_path, plant_id=plant_id)
+        if result and any(result.values()):
+            state.set_gemini_result(plant_id, result)
+            state.update_plant_from_gemini(plant_id, result)
+            return jsonify({"status": "success", "result": result})
+        else:
+            return jsonify({"error": "Gemini analysis returned empty result"}), 500
+    except Exception as e:
+        return jsonify({"error": f"Analysis failed: {str(e)}"}), 500
+
+
+@app.route("/api/plants/<int:plant_id>/gemini")
+def api_plant_gemini(plant_id: int):
+    """Lấy kết quả phân tích Gemini của cây trồng."""
+    result = state.get_gemini_result(plant_id)
+    if result is None:
+        return jsonify({"error": "Plant not found"}), 404
+    resp = jsonify(result)
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
+@app.route("/api/settings", methods=["GET", "POST"])
+def api_settings():
+    if request.method == "POST":
+        data = request.json or {}
+        settings = {}
+        if "conf" in data: settings["conf"] = float(data["conf"])
+        if "laser_pulse_ms" in data: settings["laser_pulse_ms"] = int(data["laser_pulse_ms"])
+        if "max_shots" in data: settings["max_shots"] = int(data["max_shots"])
+        if "static_cam" in data: settings["static_cam"] = bool(data["static_cam"])
+        if "cam_height" in data: settings["cam_height"] = float(data["cam_height"])
+        if "servo_height" in data: settings["servo_height"] = float(data["servo_height"])
+        if "cam_tilt" in data: settings["cam_tilt"] = float(data["cam_tilt"])
+        if "offset_pan" in data: settings["offset_pan"] = float(data["offset_pan"])
+        if "offset_tilt" in data: settings["offset_tilt"] = float(data["offset_tilt"])
+        if "gemini_api_key" in data: settings["gemini_api_key"] = str(data["gemini_api_key"]).strip()
+        
+        state.update_settings(**settings)
+        return jsonify({"status": "success", "settings": state.get_settings()})
+    
+    resp = jsonify(state.get_settings())
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
+@app.route("/api/logs")
+def api_logs():
+    """Trả về 50 dòng nhật ký hệ thống cuối cùng."""
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    log_path = os.path.join(base_dir, "logs", "weed_system.log")
+    if not os.path.exists(log_path):
+        return jsonify(["[Hệ Thống] Chưa có nhật ký hoạt động."])
+    try:
+        with open(log_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+            return jsonify([line.strip() for line in lines[-50:]])
+    except Exception as e:
+        return jsonify([f"[Lỗi] Không thể đọc tệp log: {e}"])
+
 
 @app.route("/health")
 def health():

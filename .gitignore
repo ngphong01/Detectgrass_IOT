@@ -25,3 +25,8 @@ dataset_yolo/
 .vscode/
 .idea/
 
+# Local logs, configurations, and captures
+logs/
+captures/
+config/settings.json
+
