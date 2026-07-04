@@ -3,13 +3,21 @@
 
 <div align="center">
 
-**Hệ thống phát hiện cỏ dại và giám sát cây trồng thông minh trên Raspberry Pi 4B**
+<img src="https://img.shields.io/badge/Python-3.9+-3776AB?style=for-the-badge&logo=python&logoColor=white"/>
+<img src="https://img.shields.io/badge/YOLOv8-Ultralytics-00FFFF?style=for-the-badge&logo=yolo"/>
+<img src="https://img.shields.io/badge/Raspberry%20Pi-4B-C51A4A?style=for-the-badge&logo=raspberrypi&logoColor=white"/>
+<img src="https://img.shields.io/badge/Flask-2.x-000000?style=for-the-badge&logo=flask&logoColor=white"/>
+<img src="https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge"/>
+<img src="https://img.shields.io/badge/Status-Active-22c55e?style=for-the-badge"/>
 
-[![Python](https://img.shields.io/badge/Python-3.9+-3776AB?logo=python&logoColor=white)](https://python.org)
-[![YOLOv8](https://img.shields.io/badge/YOLOv8-Ultralytics-00FFFF?logo=yolo)](https://ultralytics.com)
-[![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-4B-C51A4A?logo=raspberrypi)](https://raspberrypi.org)
-[![Flask](https://img.shields.io/badge/Flask-Web%20Dashboard-000000?logo=flask)](https://flask.palletsprojects.com)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+<br/><br/>
+
+> **Real-time AI weed detection & crop monitoring system**  
+> running on Raspberry Pi 4B with YOLOv8, servo pan/tilt, laser targeting and live Web Dashboard.
+
+<br/>
+
+[📖 Documentation](#-getting-started) · [🔌 Hardware](#-hardware) · [🌐 Web Dashboard](#-web-dashboard) · [🗺️ Roadmap](#️-roadmap)
 
 </div>
 
@@ -17,55 +25,66 @@
 
 ## 📌 Overview
 
-**AI Weed Detection** là hệ thống nhúng chạy trên **Raspberry Pi 4B**, sử dụng **YOLOv8** để phát hiện cỏ dại và theo dõi cây trồng theo thời gian thực. Khi phát hiện cỏ dại, hệ thống tự động điều khiển servo pan/tilt để aim laser tiêu diệt mục tiêu, đồng thời hiển thị dữ liệu trực tiếp lên Web Dashboard.
+**AI Weed Detection** là hệ thống nhúng chạy trên **Raspberry Pi 4B**, sử dụng **YOLOv8** phát hiện cỏ dại và theo dõi cây trồng theo thời gian thực.
+
+Khi phát hiện cỏ dại, hệ thống tự động:
+- Điều khiển **servo pan/tilt** (PCA9685) để aim vào mục tiêu
+- Khai hoả **laser pulse** tiêu diệt cỏ
+- Dừng **motor L298N** trong quá trình xử lý
+- Ghi nhận và hiển thị dữ liệu lên **Web Dashboard**
 
 ```
 Camera ──→ YOLOv8 ──→ error_x / error_y ──→ Servo Pan/Tilt ──→ Laser
-                  └──→ Crop Tracking ──→ Web Dashboard (Flask)
+                  └──→ Crop Tracking ──→ Web Dashboard (Flask :5000)
 ```
 
-### Pipeline chi tiết
+<details>
+<summary>📊 Chi tiết pipeline</summary>
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     Raspberry Pi 4B                          │
-│                                                             │
-│  Camera (USB/CSI)                                           │
-│       │                                                     │
-│       ▼                                                     │
-│  YOLOv8 Inference (.pt / .onnx)                             │
-│       │                                                     │
-│       ├── class=weed ──→ State Machine                      │
-│       │                  FORWARD → STOPPED → TRACKING       │
-│       │                  → FIRING → COOLDOWN                │
-│       │                       │                             │
-│       │                  Servo PCA9685 (pan/tilt)           │
-│       │                       │                             │
-│       │                  Laser pulse (50ms, cap 1s)         │
-│       │                  Motor L298N (stop/go)              │
-│       │                                                     │
-│       └── class=crop ──→ Crop Tracker                       │
-│                          → Capture image                    │
-│                          → Classify stage                   │
-│                          → Growth history                   │
-│                               │                             │
-│                          Web Dashboard :5000                │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│                    Raspberry Pi 4B                        │
+│                                                          │
+│  Camera (USB / CSI)                                      │
+│        │                                                 │
+│        ▼                                                 │
+│  YOLOv8 Inference  (.pt / .onnx)                         │
+│        │                                                 │
+│        ├── class = weed ──→ State Machine                │
+│        │                   FORWARD → STOPPED             │
+│        │                   → TRACKING → FIRING           │
+│        │                   → COOLDOWN                    │
+│        │                        │                        │
+│        │                   Servo PCA9685  (pan / tilt)   │
+│        │                   Laser pulse   (50ms, cap 1s)  │
+│        │                   Motor L298N   (stop / go)     │
+│        │                                                 │
+│        └── class = crop ──→ Crop Tracker                 │
+│                             → Capture image              │
+│                             → Classify stage             │
+│                             → Growth history             │
+│                                  │                       │
+│                             Web Dashboard  :5000         │
+└──────────────────────────────────────────────────────────┘
 ```
+
+</details>
 
 ---
 
 ## ✨ Features
 
-- 🧠 **YOLOv8 Realtime** — Detect cỏ dại + cây trồng, hỗ trợ `.pt` và `.onnx`
-- 🔄 **State Machine** — `FORWARD → STOPPED → TRACKING → FIRING → COOLDOWN`
-- 🎯 **Servo Pan/Tilt** — PCA9685 I2C, góc 20–160°, offset calibration
-- 🔦 **Laser Pulse** — Xung 50ms, safety hard cap 1s, `try/finally` đảm bảo OFF
-- ⚙️ **Motor L298N** — Tự hành, dừng khi phát hiện cỏ, chống spam GPIO
-- 🌐 **Web Dashboard** — Flask tại `:5000`, camera live stream, stats, crop tracking
-- 🌿 **Crop Tracking** — Theo dõi cây, chụp ảnh, phân loại giai đoạn, lịch sử tăng trưởng
-- 🛡️ **Safety System** — SIGTERM handler, watchdog, laser failsafe
-- 💻 **Simulation Mode** — Chạy test trên PC không cần GPIO
+|  | Feature | Description |
+|--|---------|-------------|
+| 🧠 | **YOLOv8 Realtime** | Hỗ trợ `.pt` và `.onnx`, tự chọn backend tối ưu |
+| 🔄 | **State Machine** | `FORWARD → STOPPED → TRACKING → FIRING → COOLDOWN` |
+| 🎯 | **Servo Pan/Tilt** | PCA9685 I2C, góc 20–160°, P-controller + offset calibration |
+| 🔦 | **Laser Pulse** | Xung 50ms, hard cap 1s, `try/finally` đảm bảo OFF |
+| ⚙️ | **Motor L298N** | Tự hành, dừng khi phát hiện cỏ, chống spam GPIO |
+| 🌐 | **Web Dashboard** | Flask `:5000` — live stream, KPI cards, crop management |
+| 🌿 | **Crop Tracking** | Chụp ảnh, phân loại giai đoạn, lịch sử tăng trưởng |
+| 🛡️ | **Safety System** | SIGTERM handler, watchdog 30s, laser failsafe |
+| 💻 | **Simulation Mode** | Chạy trên PC không cần GPIO |
 
 ---
 
@@ -73,75 +92,76 @@ Camera ──→ YOLOv8 ──→ error_x / error_y ──→ Servo Pan/Tilt ─
 
 ```
 detect-iot/
-├── main.py                         # Entry point — state machine + Web server
-├── run_weed_laser.py               # Multi-target weed + laser runner
-├── requirements.txt                # Python dependencies
 │
-├── hardware/                       # Hardware abstraction layer
-│   ├── wiring.py                   # Central pin mapping
-│   ├── laser_control.py            # Laser pulse + safety cap
-│   ├── motor_l298n.py              # L298N motor driver
-│   ├── servo_control.py            # Servo GPIO PWM (fallback)
-│   └── servo_pca9685.py            # Servo PCA9685 I2C (primary)
+├── 📄 main.py                        # Entry point — state machine + web server
+├── 📄 run_weed_laser.py              # Multi-target weed + laser runner
+├── 📄 requirements.txt               # Python dependencies
 │
-├── models/                         # Trained model weights
-│   ├── best.pt                     # YOLOv8 PyTorch
-│   └── best.onnx                   # ONNX (optimized for Pi)
+├── 🔌 hardware/                      # Hardware abstraction layer
+│   ├── wiring.py                     #   Central pin mapping
+│   ├── laser_control.py              #   Laser pulse + safety cap
+│   ├── motor_l298n.py                #   L298N motor driver
+│   ├── servo_control.py              #   Servo GPIO PWM (fallback)
+│   └── servo_pca9685.py              #   Servo PCA9685 I2C (primary)
 │
-├── utils/                          # Utility modules
-│   ├── camera_pi.py                # USB / CSI camera abstraction
-│   ├── coordinate_convert.py       # Pixel → servo angle
-│   ├── rt_tasks.py                 # Real-time task helpers
-│   └── shared_state.py             # Thread-safe state (Web ↔ detection)
+├── 🧠 models/                        # Trained model weights
+│   ├── best.pt                       #   YOLOv8 PyTorch
+│   └── best.onnx                     #   ONNX — optimized for Pi
 │
-├── webapp/                         # Web Dashboard
-│   ├── app.py                      # Flask server + REST API
-│   ├── templates/index.html        # Dashboard UI
-│   └── static/style.css            # Stylesheet
+├── 🛠️ utils/                         # Utility modules
+│   ├── camera_pi.py                  #   USB / CSI camera abstraction
+│   ├── coordinate_convert.py         #   Pixel → servo angle
+│   ├── rt_tasks.py                   #   Real-time task helpers
+│   └── shared_state.py               #   Thread-safe state (Web ↔ detection)
 │
-├── scripts/                        # Utility scripts
-│   ├── selftest_pi_hardware.py     # Hardware self-test
-│   ├── setup_samba_pi.sh           # Samba file share setup
-│   └── deploy.sh                   # One-command deploy
+├── 🌐 webapp/                        # Web Dashboard
+│   ├── app.py                        #   Flask server + REST API
+│   ├── templates/index.html          #   Dashboard UI
+│   └── static/style.css              #   Stylesheet
 │
-├── config/                         # YOLO dataset config
-├── docs/
-│   └── CHUCNANG.md                 # Feature roadmap
-├── captures/                       # Crop snapshot storage
-├── yolov8n.pt                      # YOLOv8 nano pretrained base
-├── RUN_RASPBERRY_PI.md             # Pi-specific run guide
-└── README.md
+├── 📜 scripts/                       # Utility scripts
+│   ├── selftest_pi_hardware.py       #   Hardware self-test
+│   ├── setup_samba_pi.sh             #   Samba file share setup
+│   └── deploy.sh                     #   One-command deploy
+│
+├── ⚙️ config/                        # YOLO dataset config
+├── 📷 captures/                      # Crop snapshot storage
+└── 📖 docs/
+    └── CHUCNANG.md                   # Feature roadmap
 ```
 
 ---
 
 ## 🔌 Hardware
 
-### Components
+### Bill of Materials
 
-| Component | Model | Interface |
-|-----------|-------|-----------|
-| MCU | Raspberry Pi 4B (2GB+) | — |
-| Camera | USB Webcam / Pi Camera v2/v3 | USB / CSI |
-| Servo Driver | PCA9685 | I2C |
-| Servo Pan | Standard Servo | PCA9685 Ch.14 |
-| Servo Tilt | Standard Servo | PCA9685 Ch.15 |
-| Laser | Laser Diode + Transistor | BOARD 16 |
-| Motor Driver | L298N | BOARD 32, 33 |
+| Component | Model | Interface | Notes |
+|-----------|-------|-----------|-------|
+| MCU | Raspberry Pi 4B 2GB+ | — | 64-bit OS required |
+| Camera | USB Webcam / Pi Camera v2/v3 | USB / CSI | |
+| Servo Driver | PCA9685 16-ch | I2C | |
+| Servo Pan | Standard Servo | PCA9685 Ch.14 | 20–160° |
+| Servo Tilt | Standard Servo | PCA9685 Ch.15 | 20–160° |
+| Laser | Diode + NPN Transistor | BOARD 16 | |
+| Motor Driver | L298N | BOARD 32, 33 | |
 
-### Wiring Summary
+### Wiring Diagram
 
 ```
-PCA9685 ──(I2C)──→ Raspberry Pi (SDA/SCL)
-  Ch.14 ──────────→ Servo Pan
-  Ch.15 ──────────→ Servo Tilt
-
-GPIO BOARD 16 ──→ Transistor Base ──→ Laser
-GPIO BOARD 32 ──→ L298N IN3
-GPIO BOARD 33 ──→ L298N IN4
+Raspberry Pi 4B
+│
+├── I2C ──────────────────→ PCA9685
+│                               ├── Ch.14 ──→ Servo Pan
+│                               └── Ch.15 ──→ Servo Tilt
+│
+├── BOARD 16 ─→ Transistor ──→ Laser (+)
+│
+├── BOARD 32 ─────────────→ L298N IN3
+└── BOARD 33 ─────────────→ L298N IN4
 ```
 
-> ⚙️ Thay đổi pin mapping tại `hardware/wiring.py`
+> 💡 Toàn bộ pin mapping tập trung tại `hardware/wiring.py`
 
 ---
 
@@ -149,32 +169,32 @@ GPIO BOARD 33 ──→ L298N IN4
 
 ### Prerequisites
 
-- Raspberry Pi 4B — Raspberry Pi OS 64-bit (Bullseye/Bookworm)
-- Python 3.9+
-- I2C enabled (`raspi-config`)
-- Camera enabled (`raspi-config`)
+- Raspberry Pi 4B — Raspberry Pi OS **64-bit** (Bullseye / Bookworm)
+- Python **3.9+**
+- I2C & Camera interface enabled
 
-### 1. Clone
+### 1 — Clone the repository
 
 ```bash
 git clone https://github.com/your-username/ai-weed-detection.git
 cd ai-weed-detection
 ```
 
-### 2. Quick Install (recommended)
+### 2 — Install dependencies
+
+**Option A: One-command deploy (recommended)**
 
 ```bash
 sudo bash scripts/deploy.sh
 ```
 
-### 3. Manual Install
+**Option B: Manual install**
 
 ```bash
 # System packages
-sudo apt update && sudo apt install -y \
-  python3-pip python3-picamera2 i2c-tools
+sudo apt update && sudo apt install -y python3-pip python3-picamera2 i2c-tools
 
-# Enable interfaces
+# Enable I2C & Camera
 sudo raspi-config nonint do_i2c 0
 sudo raspi-config nonint do_camera 0
 
@@ -182,29 +202,29 @@ sudo raspi-config nonint do_camera 0
 pip install -r requirements.txt
 pip install adafruit-circuitpython-servokit flask
 
-# Create directories
+# Setup directories
 mkdir -p logs captures models
 
-# Copy your trained model
+# Copy trained model
 scp best.pt pi@<pi-ip>:/home/pi/ai-weed-detection/models/
 ```
 
-### 4. Run
+### 3 — Run
 
 ```bash
-# Production — with Web Dashboard
+# ✅ Production — Web Dashboard enabled
 python main.py --picam2 --web --fps 8
 
-# Debug — with preview window
+# 🔍 Debug — with preview window
 python main.py --camera 0 --show
 
-# Multi-target weed + laser
+# 🔫 Multi-target weed + laser
 python run_weed_laser.py --pca9685 --show --state-debug-log
 
-# Hardware self-test
+# 🔧 Hardware self-test
 python scripts/selftest_pi_hardware.py
 
-# Web Dashboard only
+# 🌐 Web Dashboard standalone
 python webapp/app.py
 ```
 
@@ -212,24 +232,28 @@ python webapp/app.py
 
 ## ⚙️ CLI Reference
 
-| Argument | Default | Description |
-|----------|---------|-------------|
-| `--model` | `models/best.pt` | Model path (`.pt` or `.onnx`) |
-| `--camera` | `0` | USB camera index |
-| `--picam2` | off | Use Pi Camera CSI |
-| `--conf` | `0.2` | Detection confidence threshold |
-| `--fps` | `10` | Target inference FPS |
-| `--imgsz` | `320` | Inference image size |
-| `--show` | off | Enable debug preview window |
-| `--web` | off | Enable Web Dashboard |
-| `--web-port` | `5000` | Dashboard port |
-| `--pan-gain` | `0.06` | P-controller gain — pan axis |
-| `--tilt-gain` | `0.06` | P-controller gain — tilt axis |
-| `--offset-pan` | `0` | Laser-camera offset (degrees) |
-| `--offset-tilt` | `0` | Laser-camera offset (degrees) |
-| `--laser-pulse-ms` | `50` | Laser pulse duration (ms) |
-| `--max-shots` | `3` | Max shots per weed target |
-| `--state-timeout-sec` | `30` | Watchdog reset timeout |
+```bash
+python main.py [OPTIONS]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--model PATH` | `models/best.pt` | Model path — `.pt` or `.onnx` |
+| `--camera INT` | `0` | USB camera device index |
+| `--picam2` | `False` | Use Pi Camera Module (CSI) |
+| `--conf FLOAT` | `0.2` | Detection confidence threshold |
+| `--fps INT` | `10` | Target inference FPS |
+| `--imgsz INT` | `320` | Inference input size (px) |
+| `--show` | `False` | Show debug preview window |
+| `--web` | `False` | Enable Web Dashboard |
+| `--web-port INT` | `5000` | Web Dashboard port |
+| `--pan-gain FLOAT` | `0.06` | P-gain — pan servo |
+| `--tilt-gain FLOAT` | `0.06` | P-gain — tilt servo |
+| `--offset-pan FLOAT` | `0` | Laser-camera pan offset (°) |
+| `--offset-tilt FLOAT` | `0` | Laser-camera tilt offset (°) |
+| `--laser-pulse-ms INT` | `50` | Laser pulse duration (ms) |
+| `--max-shots INT` | `3` | Max shots per weed target |
+| `--state-timeout-sec INT` | `30` | Watchdog reset timeout (s) |
 
 ---
 
@@ -238,11 +262,12 @@ python webapp/app.py
 ```mermaid
 stateDiagram-v2
     [*] --> FORWARD
+
     FORWARD --> STOPPED : Weed detected
     STOPPED --> TRACKING : Begin tracking
     TRACKING --> FIRING : Target in deadband
     FIRING --> COOLDOWN : Shot fired
-    COOLDOWN --> TRACKING : More weeds
+    COOLDOWN --> TRACKING : More weeds remain
     COOLDOWN --> FORWARD : No weeds
     TRACKING --> FORWARD : Target lost
     FORWARD --> FORWARD : Watchdog timeout (30s)
@@ -252,78 +277,82 @@ stateDiagram-v2
 
 ## 🌐 Web Dashboard
 
-Truy cập `http://<pi-ip>:5000` khi chạy với flag `--web`.
+Truy cập **`http://<pi-ip>:5000`** khi chạy với `--web`
 
 ### Pages
 
 | Page | Description |
 |------|-------------|
-| **Overview** | Camera live stream, 4 KPI cards, activity chart |
-| **Crop List** | Table với search, filter, click để xem chi tiết |
-| **Crop Detail** | Ảnh chụp, kích thước, giai đoạn, lịch sử tăng trưởng |
+| **Overview** | Camera live stream · 4 KPI cards · Activity chart |
+| **Crop List** | Bảng danh sách · Search · Filter · Click → detail |
+| **Crop Detail** | Ảnh chụp · Kích thước · Giai đoạn · Lịch sử tăng trưởng |
 
 ### REST API
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/` | GET | Dashboard HTML |
-| `/video_feed` | GET | MJPEG live stream (20 FPS) |
-| `/api/stats` | GET | Detection statistics JSON |
-| `/api/plants` | GET | Plant list JSON |
-| `/api/plants/<id>` | GET | Plant detail JSON |
-| `/api/plants/<id>/image` | GET | Plant snapshot image |
-| `/api/plants/<id>/history` | GET | Growth history JSON |
-| `/health` | GET | Health check |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/` | Dashboard HTML |
+| `GET` | `/video_feed` | MJPEG live stream — 20 FPS |
+| `GET` | `/api/stats` | Detection statistics |
+| `GET` | `/api/plants` | Plant list |
+| `GET` | `/api/plants/<id>` | Plant detail |
+| `GET` | `/api/plants/<id>/image` | Plant snapshot |
+| `GET` | `/api/plants/<id>/history` | Growth history |
+| `GET` | `/health` | Health check |
 
 ---
 
-## 🛡️ Safety
+## 🛡️ Safety System
 
 | Mechanism | Description |
 |-----------|-------------|
-| **Laser hard cap** | Max 1s/pulse — `try/finally` đảm bảo OFF |
+| **Laser hard cap** | Max 1 000ms/pulse — `try/finally` guarantees OFF |
 | **SIGTERM handler** | `systemctl stop` → laser OFF trong < 100ms |
-| **Watchdog** | State bị kẹt > 30s → force `FORWARD` |
-| **Max shots** | Tối đa 3 phát/mục tiêu → tiếp tục di chuyển |
-| **Failsafe finally** | Laser OFF trước mọi cleanup routine |
+| **Watchdog** | State kẹt > 30s → force `FORWARD` |
+| **Max shots** | 3 phát/mục tiêu → tiếp tục di chuyển |
+| **Failsafe finally** | Laser OFF trước mọi cleanup |
 | **GPIO isolation** | Mỗi module tự cleanup pin riêng |
 
-> ⚠️ **Warning:** Luôn đeo **kính bảo hộ laser** đúng bước sóng trước khi bật laser > 5mW.
+> [!WARNING]
+> Luôn đeo **kính bảo hộ laser** đúng bước sóng trước khi bật laser > 5mW.  
 > Laser công suất cao chiếu vào mắt = **mù vĩnh viễn**.
 
 ---
 
 ## 🎯 Laser Calibration Guide
 
-### Step 1 — Calibrate offset laser-camera
+> **Công thức để bắn TRÚNG:** Code đúng + Offset calibrate + Gain phù hợp + Laser đủ công suất + Model nhận diện tốt
+
+### Step 1 — Calibrate laser-camera offset
 
 ```bash
-# Bắt đầu với offset = 0, bắn vào giấy A4
+# Bắt đầu offset = 0, bắn vào giấy A4
 python main.py --picam2 --show --offset-pan 0 --offset-tilt 0
 
-# Quan sát laser lệch so với tâm bbox → điều chỉnh
+# Đo laser lệch khỏi tâm bbox → điều chỉnh
 python main.py --picam2 --show --offset-pan -3 --offset-tilt 2
 
-# Lặp lại đến khi laser trúng tâm bbox
+# Lặp đến khi laser trúng tâm
 ```
 
 ### Step 2 — Tune servo gain
 
-| Gain | Behavior |
-|------|----------|
-| `> 0.1` | Servo dao động, không settle |
-| `0.04 – 0.07` | Smooth, settle nhanh ✅ |
-| `< 0.02` | Chậm, không kịp aim |
+| Gain Value | Behavior |
+|------------|----------|
+| `> 0.10` | ❌ Servo rung, không settle |
+| `0.04 – 0.07` | ✅ Smooth, settle nhanh |
+| `< 0.02` | ❌ Quá chậm, không kịp aim |
 
-### Step 3 — Laser power vs pulse duration
+### Step 3 — Laser power selection
 
-| Power | Effectiveness | Recommended Pulse |
-|-------|--------------|-------------------|
-| 5mW | Không diệt được cỏ | — |
-| 500mW – 1W | Diệt cỏ non | 200–500ms |
-| > 2W | Diệt cỏ cứng | 100–300ms |
+| Power | Target | Pulse Duration |
+|-------|--------|----------------|
+| 5mW | Test / calibration only | — |
+| 500mW – 1W | Young / soft weeds | 200–500ms |
+| > 2W | Mature / thick weeds | 100–300ms |
 
 ```bash
+# Sau khi calibrate xong, tăng pulse
 python main.py --picam2 --laser-pulse-ms 300
 ```
 
@@ -332,16 +361,16 @@ python main.py --picam2 --laser-pulse-ms 300
 ## ✅ Pre-flight Checklist
 
 ```
-☐ 1.  selftest_pi_hardware.py PASS
-☐ 2.  YOLO predict trên ảnh test → nhận diện đúng
-☐ 3.  Chạy --show → bbox đúng vị trí
-☐ 4.  Chạy với laser rút dây → servo aim đúng hướng
-☐ 5.  Cắm laser 5mW → bắn vào giấy A4 → đo offset
-☐ 6.  Calibrate --offset-pan + --offset-tilt → laser trúng tâm
-☐ 7.  Tăng --laser-pulse-ms lên 200–500ms
-☐ 8.  Đổi sang laser công suất cao (> 500mW)
-☐ 9.  ĐEO KÍNH BẢO HỘ LASER trước khi bật laser mạnh
-☐ 10. Test ngoài thực tế
+☐  1.  selftest_pi_hardware.py → ALL PASS
+☐  2.  YOLO predict test image → detection correct
+☐  3.  Run --show → bounding boxes đúng vị trí
+☐  4.  Rút dây laser → servo aim đúng hướng
+☐  5.  Cắm laser 5mW → bắn giấy A4 → đo offset
+☐  6.  Calibrate --offset-pan & --offset-tilt → laser trúng tâm
+☐  7.  Tăng --laser-pulse-ms lên 200–500ms
+☐  8.  Đổi sang laser công suất cao (> 500mW)
+☐  9.  ⚠️  ĐEO KÍNH BẢO HỘ LASER trước khi bật laser mạnh
+☐  10. Test ngoài thực tế
 ```
 
 ---
@@ -349,77 +378,82 @@ python main.py --picam2 --laser-pulse-ms 300
 ## 🔧 Systemd Service
 
 ```bash
-# Install
+# Install & enable
 sudo cp scripts/weed-detect.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable weed-detect
-sudo systemctl start weed-detect
+sudo systemctl enable --now weed-detect
 
 # Manage
-sudo systemctl status weed-detect       # Status
-sudo systemctl stop weed-detect         # Stop
-sudo systemctl restart weed-detect      # Restart
-sudo journalctl -u weed-detect -f       # Live logs
+sudo systemctl status weed-detect        # Status
+sudo systemctl stop weed-detect          # Stop
+sudo systemctl restart weed-detect       # Restart
+sudo journalctl -u weed-detect -f        # Live logs
 ```
 
 ---
 
 ## 🗺️ Roadmap
 
-### ✅ Completed
+### ✅ v1.0 — Completed
 
-- [x] YOLOv8 realtime — `.pt` & `.onnx` support
-- [x] State machine — 5 states
-- [x] Servo pan/tilt — PCA9685 I2C + offset calibration
-- [x] Laser pulse — safety cap + `try/finally` failsafe
-- [x] Motor L298N — auto-stop on detection
+- [x] YOLOv8 realtime inference — `.pt` & `.onnx`
+- [x] 5-state machine — `FORWARD / STOPPED / TRACKING / FIRING / COOLDOWN`
+- [x] Servo pan/tilt — PCA9685 + P-controller + offset calibration
+- [x] Laser pulse — safety hard cap + `try/finally` failsafe
+- [x] Motor L298N — auto-stop on weed detection
 - [x] Web Dashboard — Flask, MJPEG stream, REST API
 - [x] Crop tracking — capture, stage classification, growth history
-- [x] SIGTERM / SIGINT safe shutdown
-- [x] Simulation mode on PC (no GPIO)
+- [x] SIGTERM / SIGINT graceful shutdown
+- [x] Simulation mode — no GPIO required on PC
 
-### 🚧 In Progress
+### 🚧 v1.1 — In Progress
 
 - [ ] Multi-class crop detection — Lettuce, Tomato, Cabbage...
-- [ ] Plant count per species
+- [ ] Per-species plant count
 - [ ] Auto CSV history export
-- [ ] Growth chart on dashboard
-- [ ] Abnormal growth alert
+- [ ] Growth trend chart on dashboard
+- [ ] Abnormal growth alert / notification
 
-### 📋 Planned
+### 📋 v2.0 — Planned
 
-- [ ] Cloud sync — push data to remote server
-- [ ] Mobile app — remote dashboard
-- [ ] Multi-Pi — multiple robots, unified dashboard
-- [ ] AI upgrade — disease classification, yield prediction
-- [ ] Auto-calibrate — automatic laser-camera alignment
-- [ ] Solar power — Li-Po + solar panel for field use
-- [ ] GPS mapping — garden map with per-plant GPS location
-- [ ] Weather integration — correlate growth with weather data
-- [ ] OTA update — remote model/firmware update
+- [ ] **Cloud sync** — push telemetry & images to remote server
+- [ ] **Mobile app** — real-time dashboard on Android / iOS
+- [ ] **Multi-Pi mesh** — multiple robots, unified dashboard
+- [ ] **Advanced AI** — disease classification, yield prediction
+- [ ] **Auto-calibration** — automatic laser-camera alignment
+- [ ] **Solar power** — Li-Po + solar panel for field deployment
+- [ ] **GPS mapping** — geo-referenced plant map
+- [ ] **Weather API** — correlate growth data with weather
+- [ ] **OTA update** — remote model & firmware update
 
 ---
 
 ## 📋 Notes
 
 - Model classes: `0 = crop` · `1 = weed`
-- Chạy trên PC không có GPIO → tự động **Simulation Mode**
-- Toàn bộ pin mapping tập trung tại `hardware/wiring.py`
-- Web Dashboard chạy độc lập: `python webapp/app.py`
+- PC without GPIO → auto **Simulation Mode**
+- Pin mapping tập trung tại `hardware/wiring.py`
+- Dashboard standalone: `python webapp/app.py`
 
 ---
 
 ## 📄 License
 
-This project is licensed under the **MIT License** — see [LICENSE](LICENSE) for details.
+Distributed under the **MIT License** — see [`LICENSE`](LICENSE) for details.
 
 ---
 
 <div align="center">
 
-Made with ❤️ by **Đào Văn Phong**
+**Made with ❤️ by Đào Văn Phong**
 
-*Raspberry Pi · YOLOv8 · Flask · PCA9685 · L298N*
+<br/>
+
+*Raspberry Pi 4B · YOLOv8 · Flask · PCA9685 · L298N · Python*
+
+<br/>
+
+⭐ Star this repo if you find it useful!
 
 </div>
 ```
